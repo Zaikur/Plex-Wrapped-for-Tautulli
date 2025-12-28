@@ -1,13 +1,11 @@
-<img width="1000" height="125" alt="{629815CE-B46B-4C07-88DE-0AD07B93A112}" src="https://github.com/user-attachments/assets/32fd275f-e882-4e33-8a26-672ecedbe04c" />
-
-
-# Plex Wrapped for Tautulli
+<img width="506" height="82" alt="Image" src="https://github.com/user-attachments/assets/3e56ec29-2d5c-4845-9c80-35ced932a246" />
+<br><br>
 
 A year-in-review wrapped report for your Plex server, powered by Tautulli data. Self hosted with Docker.<br>
-Beautiful, animated/dynamic wrapped-style statistics and fun facts. With exportable slides for social media sharing.
+Beautiful, animated/dynamic statistics and fun facts. With exportable slides for social media sharing.
 
-<img src="https://github.com/user-attachments/assets/fd762b10-9b83-40b9-a3b2-e2924ad90d92" width="15%"></img> <img src="https://github.com/user-attachments/assets/6e286878-2f68-4396-81ed-f16ba2bc4a0d" width="15%"></img> <img src="https://github.com/user-attachments/assets/5d72e56d-24b9-4704-8b40-42177e2fbfdc" width="15%"></img> <img src="https://github.com/user-attachments/assets/9b0456d3-43a4-4338-864d-fcb0acd51297" width="15%"></img><br>
-<img src="https://github.com/user-attachments/assets/f61319c3-f5a8-4895-9468-510c80cf11cf" width="15%"></img> <img src="https://github.com/user-attachments/assets/1b4b2e11-c3b6-42e3-b61b-ff18cd250889" width="15%"></img> <img src="https://github.com/user-attachments/assets/2c914378-ceb4-4d33-a45f-16df504d6c11" width="15%"></img> <img src="https://github.com/user-attachments/assets/491d5980-6e95-420b-91d4-3e0bd21e7a43" width="15%"></img>
+<img src="https://github.com/user-attachments/assets/2b71e3c1-5d84-4e80-96cb-2e32ded3cf4c" width="15%"></img> <img src="https://github.com/user-attachments/assets/9d5f2bfe-743d-4e07-b21e-2c3f02b2535e" width="15%"></img> <img src="https://github.com/user-attachments/assets/0e80485e-92cc-4f6a-ae2b-1809e4e3daf2" width="15%"></img> <img src="https://github.com/user-attachments/assets/151f7141-2dc2-4aa2-b498-bdc4093666be" width="15%"></img><br>
+<img src="https://github.com/user-attachments/assets/8129bf9a-3dfa-40ba-840f-29cebd0f1df6" width="15%"></img> <img src="https://github.com/user-attachments/assets/c0a67005-1c9a-40eb-a0a4-5e0acf016e34" width="15%"></img> <img src="https://github.com/user-attachments/assets/4d128df8-3ce4-4a86-ae8a-5aae8eb771c4" width="15%"></img> <img src="https://github.com/user-attachments/assets/0671b81d-01e3-4816-a7c7-5ba43eb31dca" width="15%"></img>
 
 ### Prerequisites
 - Docker and Docker Compose installed
@@ -57,8 +55,8 @@ In the Admin Panel you can export individual user reports.<br>
 - `Story Slides` exports nine 9:16 slides for social media reels.
 - You can select multiple users at a time.
 - Users will see an `Export Slides` button at the bottom of the web version of their wrapped report to quickly export their own slides.
-
-<img width="872" height="711" alt="image" src="https://github.com/user-attachments/assets/f78f5fc6-1d50-47d0-bd23-f2913adf729a" />
+- 
+<img width="815" height="686" alt="Image" src="https://github.com/user-attachments/assets/cbc9bc2f-7676-41bd-96a9-781eeb9a2f6b" />
 
 ### ⚠️ **Do you Need Help or have Feedback?**
 - Join the [Discord](https://discord.gg/VBNUJd7tx3).

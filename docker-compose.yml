@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  pwft:
+    image: netplexflix/pwft:latest
+    container_name: plex-wrapped-for-tautulli
+    restart: unless-stopped
+    ports:
+      - "2025:2025"
+    volumes:
+      - ./data:/data
+    environment:
+      - TZ=UTC

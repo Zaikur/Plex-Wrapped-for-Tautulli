@@ -1,0 +1,12 @@
+{
+  "adminSettings": {
+    "discreetMode": false,
+    "passwordProtectUsers": false
+  },
+  "emailSettings": {
+    "appUrl": "",
+    "serverName": "Plex Server",
+    "emailTemplate": "Hi {{friendlyName}},\n\nYour Plex Wrapped for {{serverName}} is ready!\n\nVisit {{appUrl}} to see your personalized viewing statistics.\n\nYour login details:\nUsername: {{username}}\nPassword: {{password}}\n\nEnjoy reliving your year in entertainment!\n\nBest regards,\nThe {{serverName}} Team"
+  },
+  "userPasswords": []
+}

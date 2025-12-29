@@ -4,7 +4,7 @@
 A year-in-review wrapped report for your Plex server, powered by Tautulli data. Self hosted with Docker.<br>
 Beautiful, animated/dynamic statistics and fun facts. With exportable slides for social media sharing.
 
-<img src="https://github.com/user-attachments/assets/2b71e3c1-5d84-4e80-96cb-2e32ded3cf4c" width="15%"></img> <img src="https://github.com/user-attachments/assets/9d5f2bfe-743d-4e07-b21e-2c3f02b2535e" width="15%"></img> <img src="https://github.com/user-attachments/assets/0e80485e-92cc-4f6a-ae2b-1809e4e3daf2" width="15%"></img> <img src="https://github.com/user-attachments/assets/151f7141-2dc2-4aa2-b498-bdc4093666be" width="15%"></img><br>
+<img src="https://github.com/user-attachments/assets/2b71e3c1-5d84-4e80-96cb-2e32ded3cf4c" width="15%"></img> <img src="https://github.com/user-attachments/assets/9d5f2bfe-743d-4e07-b21e-2c3f02b2535e" width="15%"></img> <img src="https://github.com/user-attachments/assets/ec98307f-ff31-47af-aa7d-ee34277e7575" width="15%"></img> <img src="https://github.com/user-attachments/assets/151f7141-2dc2-4aa2-b498-bdc4093666be" width="15%"></img><br>
 <img src="https://github.com/user-attachments/assets/8129bf9a-3dfa-40ba-840f-29cebd0f1df6" width="15%"></img> <img src="https://github.com/user-attachments/assets/c0a67005-1c9a-40eb-a0a4-5e0acf016e34" width="15%"></img> <img src="https://github.com/user-attachments/assets/4d128df8-3ce4-4a86-ae8a-5aae8eb771c4" width="15%"></img> <img src="https://github.com/user-attachments/assets/0671b81d-01e3-4816-a7c7-5ba43eb31dca" width="15%"></img>
 
 ### Prerequisites

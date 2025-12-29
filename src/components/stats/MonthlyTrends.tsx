@@ -12,6 +12,12 @@ export const MonthlyTrends = ({ watchByMonth }: MonthlyTrendsProps) => {
   const minVisibleHeight = 3; // minimum % height for non-zero values
   const peakMonth = [...watchByMonth].sort((a, b) => b.hours - a.hours)[0];
 
+  // Map month names to numbers
+  const monthNameToNumber: Record<string, number> = {
+    'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+    'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+  };
+
   return (
     <StatCard>
       <div className="flex items-center gap-3 mb-6">
@@ -35,6 +41,7 @@ export const MonthlyTrends = ({ watchByMonth }: MonthlyTrendsProps) => {
           const height = month.hours > 0 ? Math.max(rawHeight, minVisibleHeight) : 6;
           const isPeak = peakMonth && month.month === peakMonth.month;
           const hoursLabel = `${month.hours.toFixed(2)}h`;
+          const monthNumber = monthNameToNumber[month.month] || (index + 1);
 
           return (
             <div key={month.month} className="flex-1 min-w-0 flex flex-col items-center h-full">
@@ -58,8 +65,8 @@ export const MonthlyTrends = ({ watchByMonth }: MonthlyTrendsProps) => {
                 />
               </div>
 
-              <span className="text-[8px] sm:text-[10px] text-muted-foreground mt-2 rotate-45 origin-left whitespace-nowrap">
-                {month.month.slice(0, 3)}
+              <span className="text-[10px] sm:text-xs text-muted-foreground mt-2">
+                {monthNumber}
               </span>
             </div>
           );

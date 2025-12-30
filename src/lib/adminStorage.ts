@@ -11,6 +11,8 @@ export interface AdminSettings {
   normalizeTautulliAnomalies: boolean;
   useCustomTitle: boolean;
   customTitle: string;
+  useCustomLogo: boolean;
+  logoMaxHeight: number; // Max height in pixels for the logo
 }
 
 export interface EmailSettings {
@@ -92,6 +94,8 @@ export const getAdminSettings = (): AdminSettings => {
       normalizeTautulliAnomalies: false,
       useCustomTitle: false,
       customTitle: 'Plex Wrapped',
+      useCustomLogo: false,
+      logoMaxHeight: 80,
     };
   }
   try {
@@ -102,6 +106,8 @@ export const getAdminSettings = (): AdminSettings => {
       normalizeTautulliAnomalies: parsed.normalizeTautulliAnomalies || false,
       useCustomTitle: parsed.useCustomTitle || false,
       customTitle: parsed.customTitle || 'Plex Wrapped',
+      useCustomLogo: parsed.useCustomLogo || false,
+      logoMaxHeight: parsed.logoMaxHeight || 80,
     };
   } catch {
     return {
@@ -110,6 +116,8 @@ export const getAdminSettings = (): AdminSettings => {
       normalizeTautulliAnomalies: false,
       useCustomTitle: false,
       customTitle: 'Plex Wrapped',
+      useCustomLogo: false,
+      logoMaxHeight: 80,
     };
   }
 };

@@ -20,8 +20,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install production dependencies
-RUN npm install express --production
+# Install production dependencies (express + multer for file uploads)
+RUN npm install express multer --production
 
 # Copy built assets from builder
 COPY --from=builder /app/dist ./dist

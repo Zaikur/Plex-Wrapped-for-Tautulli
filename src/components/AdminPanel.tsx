@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, Eye, EyeOff, Lock, RefreshCw, Copy, Check, X, Users, Settings2, AlertCircle, Edit2, Server, Key, Loader2, Image, Type } from "lucide-react";
+import { Shield, Eye, EyeOff, Lock, RefreshCw, Copy, Check, X, Users, Settings2, AlertCircle, Edit2, Server, Key, Loader2, Image, Type, Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -10,11 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Slider } from "@/components/ui/slider";
 import { TautulliConfig, TautulliUser } from "@/types/tautulli";
 import { testConnection } from "@/lib/tautulli";
 import { AdminSettings, UserPassword } from "@/lib/adminStorage";
 import { ImageExportDialog } from "./ImageExportDialog";
-import { isServerAdminPasswordSet, setServerAdminPassword, verifyServerAdminPassword, getServerAdminSettings, saveServerAdminSettings, getServerUserPasswords, generatePassword, setServerUserPassword, generatePasswordsForAllServerUsers, getTautulliConfig, setTautulliConfig } from "@/lib/serverConfig";
+import { isServerAdminPasswordSet, setServerAdminPassword, verifyServerAdminPassword, getServerAdminSettings, saveServerAdminSettings, getServerUserPasswords, generatePassword, setServerUserPassword, generatePasswordsForAllServerUsers, getTautulliConfig, setTautulliConfig, uploadLogo, deleteLogo, checkLogoExists, getLogoUrl } from "@/lib/serverConfig";
 import { toast } from "sonner";
 
 interface AdminPanelProps {
@@ -52,6 +53,12 @@ export const AdminPanel = ({
   // Image Export state
   const [showImageExport, setShowImageExport] = useState(false);
 
+  // Logo state
+  const [logoExists, setLogoExists] = useState(false);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string>("");
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (isOpen) {
       const needsSetup = !isServerAdminPasswordSet();
@@ -68,8 +75,20 @@ export const AdminPanel = ({
       }
       // Reload settings
       setSettings(getServerAdminSettings());
+      // Check logo
+      checkLogoStatus();
     }
   }, [isOpen]);
+
+  const checkLogoStatus = async () => {
+    const exists = await checkLogoExists();
+    setLogoExists(exists);
+    if (exists) {
+      setLogoPreviewUrl(getLogoUrl());
+    } else {
+      setLogoPreviewUrl("");
+    }
+  };
 
   const loadUserPasswords = () => {
     setUserPasswords(getServerUserPasswords());
@@ -99,7 +118,7 @@ export const AdminPanel = ({
     }
   };
 
-  const handleSettingChange = (key: keyof AdminSettings, value: boolean | string) => {
+  const handleSettingChange = (key: keyof AdminSettings, value: boolean | string | number) => {
     const newSettings = {
       ...settings,
       [key]: value
@@ -118,6 +137,57 @@ export const AdminPanel = ({
       generatePasswordsForAllServerUsers(usersToGenerate);
       loadUserPasswords();
       toast.success("Passwords generated for all users");
+    }
+  };
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size must be less than 5MB");
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Invalid file type. Only PNG, JPEG, WebP, and SVG are allowed.");
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    const result = await uploadLogo(file);
+    
+    if (result.success) {
+      toast.success("Logo uploaded successfully");
+      await checkLogoStatus();
+      // Enable custom logo if not already enabled
+      if (!settings.useCustomLogo) {
+        handleSettingChange('useCustomLogo', true);
+      }
+    } else {
+      toast.error(result.error || "Failed to upload logo");
+    }
+    
+    setIsUploadingLogo(false);
+    // Reset input
+    if (logoInputRef.current) {
+      logoInputRef.current.value = "";
+    }
+  };
+
+  const handleDeleteLogo = async () => {
+    const result = await deleteLogo();
+    if (result.success) {
+      toast.success("Logo deleted successfully");
+      setLogoExists(false);
+      setLogoPreviewUrl("");
+      // Disable custom logo setting
+      handleSettingChange('useCustomLogo', false);
+    } else {
+      toast.error(result.error || "Failed to delete logo");
     }
   };
 
@@ -347,6 +417,101 @@ export const AdminPanel = ({
                   </TabsContent>
 
                   <TabsContent value="settings" className="space-y-4 mt-4">
+                    {/* Custom Logo Setting */}
+                    <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="custom-logo" className="text-base flex items-center gap-2">
+                            <Image className="w-4 h-4" />
+                            Custom Logo
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Display a custom logo on reports and exports
+                          </p>
+                        </div>
+                        <Switch 
+                          id="custom-logo" 
+                          checked={settings.useCustomLogo} 
+                          onCheckedChange={checked => handleSettingChange('useCustomLogo', checked)}
+                          disabled={!logoExists}
+                        />
+                      </div>
+                      
+                      <div className="pt-2 space-y-3">
+                        {/* Logo Preview */}
+                        {logoExists && logoPreviewUrl && (
+                          <div className="flex items-center justify-center p-4 bg-background/50 rounded-lg border border-border">
+                            <img 
+                              src={logoPreviewUrl} 
+                              alt="Custom Logo Preview" 
+                              style={{ maxHeight: `${settings.logoMaxHeight}px`, maxWidth: '100%', objectFit: 'contain' }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Upload/Delete Buttons */}
+                        <div className="flex gap-2">
+                          <input
+                            ref={logoInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                            onChange={handleLogoUpload}
+                            className="hidden"
+                            id="logo-upload"
+                          />
+                          <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => logoInputRef.current?.click()}
+                            disabled={isUploadingLogo}
+                          >
+                            {isUploadingLogo ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-4 h-4 mr-2" />
+                                {logoExists ? 'Replace Logo' : 'Upload Logo'}
+                              </>
+                            )}
+                          </Button>
+                          {logoExists && (
+                            <Button
+                              variant="outline"
+                              onClick={handleDeleteLogo}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                        
+                        {/* Logo Size Slider */}
+                        {logoExists && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm">Logo Max Height</Label>
+                              <span className="text-sm text-muted-foreground">{settings.logoMaxHeight}px</span>
+                            </div>
+                            <Slider
+                              value={[settings.logoMaxHeight]}
+                              onValueChange={([value]) => handleSettingChange('logoMaxHeight', value)}
+                              min={40}
+                              max={200}
+                              step={10}
+                              className="w-full"
+                            />
+                          </div>
+                        )}
+                        
+                        <p className="text-xs text-muted-foreground">
+                          Supported formats: PNG, JPEG, WebP, SVG (max 5MB)
+                        </p>
+                      </div>
+                    </div>
+
                     {/* Custom Title Setting */}
                     <div className="p-4 rounded-lg bg-muted/50 space-y-3">
                       <div className="flex items-center justify-between">
@@ -509,6 +674,9 @@ export const AdminPanel = ({
                       <p>• High-quality PNG images with all charts and visuals</p>
                       <p>• Single user exports as PNG, multiple users as ZIP</p>
                       <p>• Perfect for viewing on phones, tablets, or sharing</p>
+                      {settings.useCustomLogo && logoExists && (
+                        <p>• Your custom logo will appear on the first and last slides</p>
+                      )}
                     </div>
                   </TabsContent>
                 </Tabs>

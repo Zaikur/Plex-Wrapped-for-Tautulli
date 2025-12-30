@@ -1,9 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { TautulliConfig, TautulliUser, WrappedStats } from "@/types/tautulli";
 import { YearSelection, getDisplayYear, getYearsCount } from "./YearSelector";
 import { formatHours, getImageUrl } from "@/lib/tautulli";
 import { Clock, Film, Tv, Play, Calendar, Flame, Moon, Star, Trophy, Sparkles, Sunrise, Clapperboard } from "lucide-react";
-import { getServerAdminSettings } from "@/lib/serverConfig";
+import { getServerAdminSettings, checkLogoExists, getLogoUrl } from "@/lib/serverConfig";
 
 interface ExportableStorySlidesProps {
   user: TautulliUser;
@@ -42,12 +42,16 @@ export const ExportableStorySlides = ({
   const isAllTime = yearSelection.type === 'alltime';
   const yearsCount = getYearsCount();
   
-  // Get custom title from settings
+  // Get custom title and logo settings
   const adminSettings = getServerAdminSettings();
   const title = adminSettings.useCustomTitle && adminSettings.customTitle 
     ? adminSettings.customTitle 
     : 'Plex Wrapped';
   const titleWithYear = `${title} ${displayYear}`;
+
+  // Logo state
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoLoaded, setLogoLoaded] = useState(false);
 
   const hours = formatHours(stats.totalWatchTime);
   const days = Math.floor(hours / 24);
@@ -56,13 +60,28 @@ export const ExportableStorySlides = ({
   const orderedWatchByDay = reorderDaysFromMonday(stats.watchByDay);
 
   useEffect(() => {
-    // Signal ready after component mounts
+    const loadLogo = async () => {
+      if (adminSettings.useCustomLogo) {
+        const exists = await checkLogoExists();
+        if (exists) {
+          setLogoUrl(getLogoUrl());
+        }
+      }
+      setLogoLoaded(true);
+    };
+    loadLogo();
+  }, [adminSettings.useCustomLogo]);
+
+  useEffect(() => {
+    // Signal ready after component mounts and logo is checked
+    if (!logoLoaded) return;
+    
     const timer = setTimeout(() => {
       console.log('[ExportableStorySlides] Signaling ready');
       onReady?.();
     }, 200);
     return () => clearTimeout(timer);
-  }, [onReady]);
+  }, [onReady, logoLoaded]);
 
   const colors = {
     bg: '#0a0a0f',
@@ -124,6 +143,25 @@ export const ExportableStorySlides = ({
     color: 'rgba(148, 163, 184, 0.4)',
   };
 
+  // Logo component for slides
+  const LogoDisplay = ({ maxHeight = 80 }: { maxHeight?: number }) => {
+    if (!adminSettings.useCustomLogo || !logoUrl) return null;
+    
+    return (
+      <img
+        src={logoUrl}
+        alt="Logo"
+        style={{
+          maxHeight: `${maxHeight}px`,
+          width: 'auto',
+          objectFit: 'contain',
+          marginBottom: '24px',
+        }}
+        crossOrigin="anonymous"
+      />
+    );
+  };
+
   if (!stats || stats.totalWatchTime === 0) {
     return (
       <div className="story-slide" style={slideStyle}>
@@ -136,11 +174,12 @@ export const ExportableStorySlides = ({
 
   const slides: React.ReactNode[] = [];
 
-  // Slide 1: Hero (with footer)
+  // Slide 1: Hero (with logo and footer)
   slides.push(
     <div key="hero" className="story-slide" style={slideStyle}>
       <div style={gradientOverlay} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+        <LogoDisplay maxHeight={adminSettings.logoMaxHeight || 80} />
         <div style={{ fontSize: '16px', fontWeight: 500, color: colors.purple, marginBottom: '24px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
           {displayName}'s
         </div>
@@ -167,17 +206,15 @@ export const ExportableStorySlides = ({
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
         <div style={{
           fontSize: '80px',
-          marginBottom: '32px', // Increased slightly
+          marginBottom: '32px',
         }}>
           🍿
         </div>
         
-        {/* Top Text Group */}
         <p style={{ color: colors.textMuted, fontSize: '18px', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
           {isAllTime && yearsCount > 1 ? `The past ${yearsCount} years` : 'This year'} you watched
         </p>
         
-        {/* Hours Group (Centered) */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px' }}>
           <div style={{ 
             fontSize: '100px', 
@@ -191,7 +228,6 @@ export const ExportableStorySlides = ({
           <p style={{ fontSize: '32px', fontWeight: 600, color: colors.text, margin: 0 }}>hours</p>
         </div>
 
-        {/* Days Box (Fixed Vertical Align) */}
         {days > 0 && (
           <div style={{ 
             padding: '16px 32px', 
@@ -211,7 +247,7 @@ export const ExportableStorySlides = ({
     </div>
   );
 
-  // Slide 3: Content Breakdown (Text alignment fixed)
+  // Slide 3: Content Breakdown
   slides.push(
     <div key="content" className="story-slide" style={slideStyle}>
       <div style={gradientOverlay} />
@@ -226,7 +262,6 @@ export const ExportableStorySlides = ({
             <div style={{ padding: '20px', borderRadius: '16px', backgroundColor: `${colors.pink}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Film size={40} color={colors.pink} />
             </div>
-            {/* Added marginTop -8px to align visually with icon center */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', marginTop: '-8px' }}>
               <p style={{ fontSize: '48px', fontWeight: 800, color: colors.text, lineHeight: 1, margin: 0 }}>{stats.totalMovies}</p>
               <p style={{ fontSize: '18px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>Movies Watched</p>
@@ -257,7 +292,7 @@ export const ExportableStorySlides = ({
     </div>
   );
 
-  // Slide 4: Top 5 Movies (Clipping Fixed - Overflow removed)
+  // Slide 4: Top 5 Movies
   if (stats.topMovies.length > 0) {
     slides.push(
       <div key="topmovies" className="story-slide" style={slideStyle}>
@@ -297,9 +332,7 @@ export const ExportableStorySlides = ({
                     fontWeight: 600, 
                     color: colors.text, 
                     margin: 0, 
-                    lineHeight: 1.4, // Increased from 1.3 to help descenders
-                    // IMPORTANT: Removed overflow:hidden and clipping logic to prevent "half cut" letters
-                    // The flex container will grow naturally if text wraps.
+                    lineHeight: 1.4,
                   }}>{movie.title}</p>
                   <p style={{ fontSize: '13px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{movie.watchCount} play{movie.watchCount !== 1 ? 's' : ''}</p>
                 </div>
@@ -311,7 +344,7 @@ export const ExportableStorySlides = ({
     );
   }
 
-  // Slide 5: Top 5 Shows (Clipping Fixed - Overflow removed)
+  // Slide 5: Top 5 Shows
   if (stats.topShows.length > 0) {
     slides.push(
       <div key="topshows" className="story-slide" style={slideStyle}>
@@ -351,8 +384,7 @@ export const ExportableStorySlides = ({
                     fontWeight: 600, 
                     color: colors.text, 
                     margin: 0, 
-                    lineHeight: 1.4, // Increased line height
-                    // IMPORTANT: Removed overflow:hidden and clipping logic
+                    lineHeight: 1.4,
                   }}>{show.title}</p>
                   <p style={{ fontSize: '13px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{show.episodeCount} episode{show.episodeCount !== 1 ? 's' : ''}</p>
                 </div>
@@ -364,7 +396,7 @@ export const ExportableStorySlides = ({
     );
   }
 
-  // Slide 6: Trends (Spacing Fixed with Grid)
+  // Slide 6: Trends
   if (stats.watchByMonth.some(m => m.hours > 0) || stats.watchByDay.some(d => d.hours > 0)) {
     slides.push(
       <div key="trends" className="story-slide" style={slideStyle}>
@@ -372,8 +404,8 @@ export const ExportableStorySlides = ({
         <div style={headerStyle}>{titleWithYear}</div>
         <div style={{ 
           flex: 1, 
-          display: 'grid', // Using Grid for even spacing
-          gridTemplateRows: 'repeat(3, 1fr)', // 3 equal rows
+          display: 'grid',
+          gridTemplateRows: 'repeat(3, 1fr)',
           gap: '24px', 
           padding: '60px 28px 40px', 
           position: 'relative', 
@@ -542,7 +574,7 @@ export const ExportableStorySlides = ({
     );
   }
 
-  // Slide 8: Fun Facts (Spacing Balanced)
+  // Slide 8: Fun Facts
   slides.push(
     <div key="funfacts" className="story-slide" style={slideStyle}>
       <div style={gradientOverlay} />
@@ -616,12 +648,13 @@ export const ExportableStorySlides = ({
     </div>
   );
 
-  // Slide 9: Thank You
+  // Slide 9: Thank You (with logo)
   slides.push(
     <div key="thankyou" className="story-slide" style={slideStyle}>
       <div style={gradientOverlay} />
       <div style={headerStyle}>{titleWithYear}</div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 48px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+        <LogoDisplay maxHeight={adminSettings.logoMaxHeight || 80} />
         <span style={{ fontSize: '64px', marginBottom: '32px' }}>🎉</span>
         <h2 style={{ fontSize: '36px', fontWeight: 700, color: colors.text, marginBottom: '24px' }}>
           That's a wrap!

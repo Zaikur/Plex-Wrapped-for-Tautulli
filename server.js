@@ -1,12 +1,29 @@
 const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
+const multer = require('multer');
 
 const app = express();
-app.use(express.json({ limit: '10mb' })); // Increase limit for cache updates
+app.use(express.json({ limit: '10mb' }));
 
 const CONFIG_FILE = '/data/config.json';
 const METADATA_CACHE_FILE = '/data/metadata-cache.json';
+const LOGO_FILE = '/data/custom-logo.png';
+
+// Configure multer for logo upload
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PNG, JPEG, WebP, and SVG are allowed.'));
+    }
+  }
+});
 
 // Ensure data directory exists
 fs.mkdir('/data', { recursive: true }).catch(() => {});
@@ -34,6 +51,69 @@ app.post('/api/config', async (req, res) => {
   } catch (error) {
     console.error('Error saving config:', error);
     res.status(500).json({ error: 'Failed to save config' });
+  }
+});
+
+// API endpoint to upload logo
+app.post('/api/logo', upload.single('logo'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Save the logo file
+    await fs.writeFile(LOGO_FILE, req.file.buffer);
+    
+    res.json({ 
+      success: true, 
+      message: 'Logo uploaded successfully',
+      filename: 'custom-logo.png'
+    });
+  } catch (error) {
+    console.error('Error uploading logo:', error);
+    res.status(500).json({ error: 'Failed to upload logo' });
+  }
+});
+
+// API endpoint to get logo
+app.get('/api/logo', async (req, res) => {
+  try {
+    const logoBuffer = await fs.readFile(LOGO_FILE);
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(logoBuffer);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      res.status(404).json({ error: 'No custom logo found' });
+    } else {
+      console.error('Error reading logo:', error);
+      res.status(500).json({ error: 'Failed to read logo' });
+    }
+  }
+});
+
+// API endpoint to check if logo exists
+app.get('/api/logo/exists', async (req, res) => {
+  try {
+    await fs.access(LOGO_FILE);
+    res.json({ exists: true });
+  } catch {
+    res.json({ exists: false });
+  }
+});
+
+// API endpoint to delete logo
+app.delete('/api/logo', async (req, res) => {
+  try {
+    await fs.unlink(LOGO_FILE);
+    res.json({ success: true, message: 'Logo deleted successfully' });
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      res.json({ success: true, message: 'No logo to delete' });
+    } else {
+      console.error('Error deleting logo:', error);
+      res.status(500).json({ error: 'Failed to delete logo' });
+    }
   }
 });
 

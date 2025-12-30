@@ -35,6 +35,8 @@ const DEFAULT_CONFIG: ServerConfig = {
     normalizeTautulliAnomalies: false,
     useCustomTitle: false,
     customTitle: 'Plex Wrapped',
+    useCustomLogo: false,
+    logoMaxHeight: 80,
   },
   emailSettings: {
     appUrl: "",
@@ -72,6 +74,12 @@ export const loadServerConfig = async (): Promise<ServerConfig> => {
       // Ensure new fields have defaults
       if (!configCache.adminSettings.customTitle) {
         configCache.adminSettings.customTitle = 'Plex Wrapped';
+      }
+      if (configCache.adminSettings.useCustomLogo === undefined) {
+        configCache.adminSettings.useCustomLogo = false;
+      }
+      if (configCache.adminSettings.logoMaxHeight === undefined) {
+        configCache.adminSettings.logoMaxHeight = 80;
       }
       return configCache;
     }
@@ -158,6 +166,8 @@ export const getServerAdminSettings = (): AdminSettings => {
     normalizeTautulliAnomalies: settings.normalizeTautulliAnomalies || false,
     useCustomTitle: settings.useCustomTitle || false,
     customTitle: settings.customTitle || 'Plex Wrapped',
+    useCustomLogo: settings.useCustomLogo || false,
+    logoMaxHeight: settings.logoMaxHeight || 80,
   };
 };
 
@@ -165,6 +175,64 @@ export const saveServerAdminSettings = async (settings: AdminSettings): Promise<
   const config = getConfig();
   config.adminSettings = settings;
   await saveServerConfig(config);
+};
+
+// Logo functions
+export const uploadLogo = async (file: File): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    const response = await fetch('/api/logo', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (response.ok) {
+      return { success: true };
+    } else {
+      const data = await response.json();
+      return { success: false, error: data.error || 'Failed to upload logo' };
+    }
+  } catch (error) {
+    console.error('Error uploading logo:', error);
+    return { success: false, error: 'Failed to upload logo' };
+  }
+};
+
+export const deleteLogo = async (): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const response = await fetch('/api/logo', {
+      method: 'DELETE',
+    });
+
+    if (response.ok) {
+      return { success: true };
+    } else {
+      const data = await response.json();
+      return { success: false, error: data.error || 'Failed to delete logo' };
+    }
+  } catch (error) {
+    console.error('Error deleting logo:', error);
+    return { success: false, error: 'Failed to delete logo' };
+  }
+};
+
+export const checkLogoExists = async (): Promise<boolean> => {
+  try {
+    const response = await fetch('/api/logo/exists');
+    if (response.ok) {
+      const data = await response.json();
+      return data.exists;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+export const getLogoUrl = (): string => {
+  return `/api/logo?t=${Date.now()}`; // Add timestamp to bust cache
 };
 
 // Email settings functions

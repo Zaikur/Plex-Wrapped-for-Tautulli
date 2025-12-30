@@ -40,6 +40,7 @@ import html2canvas from "html2canvas";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { createRoot } from "react-dom/client";
+import { CustomLogo } from "./CustomLogo";
 
 interface WrappedReportProps {
   config: TautulliConfig | null;
@@ -349,6 +350,15 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
         >
           {showWelcomeScreen ? (
             <>
+              {/* Logo for welcome screen */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 }}
+                className="mb-6"
+              >
+                <CustomLogo className="mx-auto" />
+              </motion.div>
               <motion.h1
                 initial={{
                   scale: 0.9,
@@ -405,6 +415,15 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
             </>
           ) : (
             <>
+              {/* Logo for main report view */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.05 }}
+                className="mb-4"
+              >
+                <CustomLogo className="mx-auto" />
+              </motion.div>
               <motion.div
                 initial={{
                   opacity: 0,

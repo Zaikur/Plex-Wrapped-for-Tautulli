@@ -32,6 +32,7 @@ docker-compose up -d
 
 ### Optional Settings
 
+- **Custom Logo:** Upload your custom logo to be used in reports and export slides. You can adjust the size with the slider.
 - **Custom Title:** Use a custom title instead of "Plex Wrapped".
 - **Discreet Mode:** Replaces the user dropdown with a username input field. Users need to enter their exact username. (NOT 'Friendly name')
 - **Password Protect Users:** Generates passwords for each user. (See `Users`Tab)
@@ -68,4 +69,3 @@ If you like this project, please ⭐ star the repository and share it with the c
 <br/>
 
 [!["Buy Me A Coffee"](https://github.com/user-attachments/assets/5c30b977-2d31-4266-830e-b8c993996ce7)](https://www.buymeacoffee.com/neekokeen)
-

@@ -13,6 +13,7 @@ export interface AdminSettings {
   customTitle: string;
   useCustomLogo: boolean;
   logoMaxHeight: number; // Max height in pixels for the logo
+  enableGeolocation: boolean;
 }
 
 export interface EmailSettings {
@@ -96,6 +97,7 @@ export const getAdminSettings = (): AdminSettings => {
       customTitle: 'Plex Wrapped',
       useCustomLogo: false,
       logoMaxHeight: 80,
+      enableGeolocation: false,
     };
   }
   try {
@@ -108,6 +110,7 @@ export const getAdminSettings = (): AdminSettings => {
       customTitle: parsed.customTitle || 'Plex Wrapped',
       useCustomLogo: parsed.useCustomLogo || false,
       logoMaxHeight: parsed.logoMaxHeight || 80,
+      enableGeolocation: parsed.enableGeolocation || false,
     };
   } catch {
     return {
@@ -118,6 +121,7 @@ export const getAdminSettings = (): AdminSettings => {
       customTitle: 'Plex Wrapped',
       useCustomLogo: false,
       logoMaxHeight: 80,
+      enableGeolocation: false,
     };
   }
 };

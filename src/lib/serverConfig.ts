@@ -37,6 +37,7 @@ const DEFAULT_CONFIG: ServerConfig = {
     customTitle: 'Plex Wrapped',
     useCustomLogo: false,
     logoMaxHeight: 80,
+    enableGeolocation: false,
   },
   emailSettings: {
     appUrl: "",
@@ -80,6 +81,9 @@ export const loadServerConfig = async (): Promise<ServerConfig> => {
       }
       if (configCache.adminSettings.logoMaxHeight === undefined) {
         configCache.adminSettings.logoMaxHeight = 80;
+      }
+      if (configCache.adminSettings.enableGeolocation === undefined) {
+        configCache.adminSettings.enableGeolocation = false;
       }
       return configCache;
     }
@@ -168,6 +172,7 @@ export const getServerAdminSettings = (): AdminSettings => {
     customTitle: settings.customTitle || 'Plex Wrapped',
     useCustomLogo: settings.useCustomLogo || false,
     logoMaxHeight: settings.logoMaxHeight || 80,
+    enableGeolocation: settings.enableGeolocation || false,
   };
 };
 

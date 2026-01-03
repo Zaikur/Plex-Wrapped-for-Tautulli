@@ -1,3 +1,5 @@
+// src/components/WrappedReport.tsx
+
 import { useEffect, useState, useCallback, useRef } from "react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,10 +31,12 @@ import { MostRewatched } from "./stats/MostRewatched";
 import { GenreStats } from "./stats/GenreStats";
 import { ActorStats } from "./stats/ActorStats";
 import { PeakConcurrent } from "./stats/PeakConcurrent";
+import { GeoLocationStats } from "./stats/GeoLocationStats";
 import { AdminPanel } from "./AdminPanel";
 import { ExportableStorySlides } from "./ExportableStorySlides";
-import { TautulliConfig, TautulliUser, WrappedStats, UserStats, WatchHistory } from "@/types/tautulli";
+import { TautulliConfig, TautulliUser, WrappedStats, UserStats, WatchHistory, StreamingLocation } from "@/types/tautulli";
 import { getUsers, getHistory, calculateWrappedStats, fetchMetadataStats, getOldestHistoryYear } from "@/lib/tautulli";
+import { extractUniqueIPs, geolocateIPs, GeoLocationProgress } from "@/lib/geolocation";
 import { AdminSettings } from "@/lib/adminStorage";
 import { getServerAdminSettings } from "@/lib/serverConfig";
 import { toast } from "sonner";
@@ -79,6 +83,13 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
   const [userAuthenticated, setUserAuthenticated] = useState(false);
   const [isExportingSlides, setIsExportingSlides] = useState(false);
 
+  // Geolocation state
+  const [geoLocations, setGeoLocations] = useState<StreamingLocation[]>([]);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoTotalIPs, setGeoTotalIPs] = useState(0);
+  const [geoProcessedIPs, setGeoProcessedIPs] = useState(0);
+  const historyRef = useRef<WatchHistory[]>([]);
+
   // Get the display title based on settings
   const getTitle = () => {
     if (adminSettings.useCustomTitle && adminSettings.customTitle) {
@@ -103,6 +114,42 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
     loadUsersAndOldestYear();
   }, [config]);
 
+  // Geolocation effect - runs when stats are loaded and geolocation is enabled
+  useEffect(() => {
+    if (!adminSettings.enableGeolocation || historyRef.current.length === 0) {
+      setGeoLocations([]);
+      setGeoTotalIPs(0);
+      setGeoProcessedIPs(0);
+      return;
+    }
+
+    const runGeolocation = async () => {
+      setGeoLoading(true);
+      setGeoLocations([]);
+
+      const ipData = extractUniqueIPs(historyRef.current);
+      setGeoTotalIPs(ipData.size);
+      setGeoProcessedIPs(0);
+
+      if (ipData.size === 0) {
+        setGeoLoading(false);
+        return;
+      }
+
+      const handleProgress = (progress: GeoLocationProgress) => {
+        setGeoLocations(progress.locations);
+        setGeoProcessedIPs(progress.processed);
+        if (progress.done) {
+          setGeoLoading(false);
+        }
+      };
+
+      await geolocateIPs(ipData, handleProgress);
+    };
+
+    runGeolocation();
+  }, [adminSettings.enableGeolocation, stats]);
+
   const loadStats = useCallback(async () => {
     // Don't load stats if in discreet mode and no user selected
     if (adminSettings.discreetMode && selectedUserId === null) {
@@ -115,6 +162,12 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
     }
 
     setIsLoading(true);
+    // Reset geolocation state
+    setGeoLocations([]);
+    setGeoTotalIPs(0);
+    setGeoProcessedIPs(0);
+    historyRef.current = [];
+
     try {
       const { startDate, endDate } = getDateRangeFromSelection(yearSelection);
       const startStr = format(startDate, "yyyy-MM-dd");
@@ -125,6 +178,7 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
       
       if (selectedUserId !== null) {
         const history = await getHistory(config, selectedUserId, startStr, endStr, 5000, normalizeAnomalies);
+        historyRef.current = history; // Store for geolocation
         const calculatedStats = calculateWrappedStats(history);
         
         fetchMetadataStats(config, history).then((metaStats) => {
@@ -142,6 +196,7 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
         setAllUserStats([]);
       } else {
         const allHistory = await getHistory(config, undefined, startStr, endStr, 5000, normalizeAnomalies);
+        historyRef.current = allHistory; // Store for geolocation
         const overallStats = calculateWrappedStats(allHistory);
         
         fetchMetadataStats(config, allHistory).then((metaStats) => {
@@ -251,6 +306,7 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
             stats={stats}
             yearSelection={yearSelection}
             config={config!}
+            geoLocations={adminSettings.enableGeolocation ? geoLocations : []}
             onReady={() => {
               setTimeout(resolve, 500);
             }}
@@ -666,6 +722,19 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
               isAllTime={isAllTime}
             />
           </section>
+          
+          {/* Geolocation Section - After Journey, Before Platforms */}
+          {adminSettings.enableGeolocation && (geoLocations.length > 0 || geoLoading || geoTotalIPs > 0) && (
+            <section>
+              <GeoLocationStats
+                locations={geoLocations}
+                isLoading={geoLoading}
+                totalIPs={geoTotalIPs}
+                processedIPs={geoProcessedIPs}
+              />
+            </section>
+          )}
+          
           {stats.platforms.length > 0 && (
             <section>
               <PlatformStats platforms={stats.platforms} />

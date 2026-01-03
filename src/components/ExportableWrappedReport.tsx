@@ -1,9 +1,12 @@
+// src/components/ExportableWrappedReport.tsx
+
 import { useEffect } from "react";
-import { TautulliConfig, TautulliUser, WrappedStats } from "@/types/tautulli";
+import { TautulliConfig, TautulliUser, WrappedStats, StreamingLocation } from "@/types/tautulli";
 import { YearSelection, getDisplayYear, getYearsCount } from "./YearSelector";
 import { formatHours } from "@/lib/tautulli";
-import { Clock, Film, Tv, Play, Calendar, Flame, Moon, Star, Clapperboard, Users, Smartphone, Trophy, Sparkles, CalendarDays, Sunrise } from "lucide-react";
+import { Clock, Film, Tv, Play, Calendar, Flame, Moon, Star, Clapperboard, Users, Smartphone, Trophy, Sparkles, CalendarDays, Sunrise, Globe, MapPin } from "lucide-react";
 import { getServerAdminSettings } from "@/lib/serverConfig";
+import { generateLocationInsight } from "@/lib/geolocation";
 
 // Format duration as "Xh Ym" for readability
 const formatDurationHM = (seconds: number): string => {
@@ -23,11 +26,22 @@ const reorderDaysFromMonday = (watchByDay: { day: string; hours: number }[]) => 
   );
 };
 
+// Flag emoji helper
+const getFlagEmoji = (countryCode: string): string => {
+  if (!countryCode || countryCode.length !== 2) return "";
+  const codePoints = countryCode
+    .toUpperCase()
+    .split("")
+    .map((char) => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+};
+
 interface ExportableWrappedReportProps {
   user: TautulliUser;
   stats: WrappedStats;
   yearSelection: YearSelection;
   config: TautulliConfig;
+  geoLocations?: StreamingLocation[];
   onReady?: () => void;
 }
 
@@ -37,6 +51,7 @@ export const ExportableWrappedReport = ({
   user,
   stats,
   yearSelection,
+  geoLocations = [],
   onReady,
 }: ExportableWrappedReportProps) => {
   const displayName = user.friendly_name || user.username;
@@ -91,6 +106,15 @@ export const ExportableWrappedReport = ({
       </div>
     );
   }
+
+  // Geolocation data processing
+  const showGeolocation = adminSettings.enableGeolocation && geoLocations.length > 0;
+  const geoCountries = showGeolocation ? [...new Set(geoLocations.map(l => l.country))] : [];
+  const geoCities = showGeolocation ? [...new Set(geoLocations.map(l => l.city).filter(c => c !== 'Unknown'))] : [];
+  const geoTotalSessions = showGeolocation ? geoLocations.reduce((sum, l) => sum + l.sessionCount, 0) : 0;
+  const geoSortedLocations = showGeolocation ? [...geoLocations].sort((a, b) => b.sessionCount - a.sessionCount) : [];
+  const geoTopLocations = geoSortedLocations.slice(0, 5);
+  const geoInsight = showGeolocation ? generateLocationInsight(geoLocations) : '';
 
   return (
     <div
@@ -476,6 +500,99 @@ export const ExportableWrappedReport = ({
             )}
           </div>
         </div>
+
+        {/* Geolocation Section */}
+        {showGeolocation && (
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+              <Globe size={20} color={colors.cyan} />
+              <span style={{ fontSize: '18px', fontWeight: 600, color: colors.text }}>Streaming Globe</span>
+            </div>
+            
+            {/* Insight */}
+            <p style={{ 
+              fontSize: '16px', 
+              fontWeight: 600, 
+              textAlign: 'center', 
+              marginBottom: '24px',
+              background: `linear-gradient(90deg, ${colors.cyan}, ${colors.pink})`,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>
+              {geoInsight}
+            </p>
+
+            {/* Stats Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
+              <div style={{ textAlign: 'center', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+                <p style={{ fontSize: '28px', fontWeight: 700, color: colors.cyan, margin: 0 }}>{geoCountries.length}</p>
+                <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>{geoCountries.length === 1 ? 'Country' : 'Countries'}</p>
+              </div>
+              <div style={{ textAlign: 'center', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+                <p style={{ fontSize: '28px', fontWeight: 700, color: colors.pink, margin: 0 }}>{geoCities.length}</p>
+                <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>{geoCities.length === 1 ? 'City' : 'Cities'}</p>
+              </div>
+              <div style={{ textAlign: 'center', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+                <p style={{ fontSize: '28px', fontWeight: 700, color: colors.purple, margin: 0 }}>{geoTotalSessions}</p>
+                <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>Sessions</p>
+              </div>
+            </div>
+
+            {/* Top Locations */}
+            {geoTopLocations.length > 0 && (
+              <>
+                <h4 style={{ fontSize: '14px', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px' }}>
+                  Top Streaming Spots
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {geoTopLocations.map((loc, i) => (
+                    <div 
+                      key={`${loc.city}-${loc.country}`} 
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '12px', 
+                        padding: '12px 16px', 
+                        backgroundColor: i === 0 ? `${colors.cyan}15` : 'rgba(255,255,255,0.03)', 
+                        borderRadius: '12px',
+                        border: i === 0 ? `1px solid ${colors.cyan}40` : 'none',
+                      }}
+                    >
+                      <div style={{ 
+                        width: '28px', 
+                        height: '28px', 
+                        borderRadius: '50%', 
+                        background: `linear-gradient(135deg, ${colors.cyan}40, ${colors.purple}40)`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: colors.text,
+                      }}>
+                        {i + 1}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: '14px', fontWeight: 600, color: colors.text, margin: 0 }}>
+                          {loc.city !== "Unknown" ? loc.city : loc.region || loc.country}
+                        </p>
+                        <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0 }}>
+                          {loc.city !== "Unknown" && loc.country !== loc.city ? `${loc.country} ` : ''}
+                          {getFlagEmoji(loc.countryCode)}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <MapPin size={14} color={colors.textMuted} />
+                        <span style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>{loc.sessionCount} streams</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Genres with bar chart */}
         {stats.topGenres.length > 0 && (

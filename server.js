@@ -1,3 +1,5 @@
+// server.js - Add geolocation cache endpoints
+
 const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
@@ -9,12 +11,13 @@ app.use(express.json({ limit: '10mb' }));
 const CONFIG_FILE = '/data/config.json';
 const METADATA_CACHE_FILE = '/data/metadata-cache.json';
 const LOGO_FILE = '/data/custom-logo.png';
+const GEOLOCATION_CACHE_FILE = '/data/geolocation-cache.json'; // NEW
 
 // Configure multer for logo upload
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
     if (allowedTypes.includes(file.mimetype)) {
@@ -60,10 +63,7 @@ app.post('/api/logo', upload.single('logo'), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-
-    // Save the logo file
     await fs.writeFile(LOGO_FILE, req.file.buffer);
-    
     res.json({ 
       success: true, 
       message: 'Logo uploaded successfully',
@@ -144,7 +144,6 @@ app.post('/api/cache/metadata', async (req, res) => {
       // File doesn't exist yet, use default
     }
     
-    // Merge new metadata entries
     const newEntries = req.body.metadata || {};
     existingCache.metadata = { ...existingCache.metadata, ...newEntries };
     existingCache.lastUpdated = Date.now();
@@ -168,10 +167,63 @@ app.delete('/api/cache/metadata', async (req, res) => {
   }
 });
 
+// ============ GEOLOCATION CACHE ENDPOINTS ============
+
+// API endpoint to get geolocation cache
+app.get('/api/cache/geolocation', async (req, res) => {
+  try {
+    const data = await fs.readFile(GEOLOCATION_CACHE_FILE, 'utf8');
+    res.json(JSON.parse(data));
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      res.json({ version: 1, locations: {} });
+    } else {
+      console.error('Error reading geolocation cache:', error);
+      res.status(500).json({ error: 'Failed to read geolocation cache' });
+    }
+  }
+});
+
+// API endpoint to update geolocation cache (merge new entries)
+app.post('/api/cache/geolocation', async (req, res) => {
+  try {
+    let existingCache = { version: 1, locations: {} };
+    
+    try {
+      const data = await fs.readFile(GEOLOCATION_CACHE_FILE, 'utf8');
+      existingCache = JSON.parse(data);
+    } catch (e) {
+      // File doesn't exist yet, use default
+    }
+    
+    const newEntries = req.body.locations || {};
+    existingCache.locations = { ...existingCache.locations, ...newEntries };
+    existingCache.lastUpdated = Date.now();
+    
+    await fs.writeFile(GEOLOCATION_CACHE_FILE, JSON.stringify(existingCache, null, 2));
+    res.json({ success: true, totalEntries: Object.keys(existingCache.locations).length });
+  } catch (error) {
+    console.error('Error saving geolocation cache:', error);
+    res.status(500).json({ error: 'Failed to save geolocation cache' });
+  }
+});
+
+// API endpoint to clear geolocation cache
+app.delete('/api/cache/geolocation', async (req, res) => {
+  try {
+    await fs.writeFile(GEOLOCATION_CACHE_FILE, JSON.stringify({ version: 1, locations: {} }, null, 2));
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error clearing geolocation cache:', error);
+    res.status(500).json({ error: 'Failed to clear geolocation cache' });
+  }
+});
+
+// ============ END GEOLOCATION CACHE ENDPOINTS ============
+
 // Proxy endpoint for Tautulli requests
 app.get('/api/tautulli', async (req, res) => {
   try {
-    // Read config to get Tautulli URL and API key
     const configData = await fs.readFile(CONFIG_FILE, 'utf8');
     const config = JSON.parse(configData);
     
@@ -179,36 +231,28 @@ app.get('/api/tautulli', async (req, res) => {
       return res.status(400).json({ error: 'Tautulli not configured' });
     }
 
-    // NORMALIZE URL - add http:// if missing
     let tautulliBaseUrl = config.tautulli.url.trim().replace(/\/$/, '');
     if (!tautulliBaseUrl.startsWith('http://') && !tautulliBaseUrl.startsWith('https://')) {
       tautulliBaseUrl = `http://${tautulliBaseUrl}`;
     }
 
-    // Build the Tautulli URL with query parameters
     const tautulliUrl = new URL(tautulliBaseUrl);
     tautulliUrl.pathname = '/api/v2';
     
-    // Forward all query parameters from the client request
     Object.keys(req.query).forEach(key => {
       tautulliUrl.searchParams.append(key, req.query[key]);
     });
     
-    // Add API key
     tautulliUrl.searchParams.append('apikey', config.tautulli.apiKey);
 
-    // Make request to Tautulli
     const response = await fetch(tautulliUrl.toString());
     
-    // Check if this is an image request (pms_image_proxy returns images, not JSON)
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.startsWith('image/')) {
-      // Proxy the image directly
       const imageBuffer = await response.arrayBuffer();
       res.set('Content-Type', contentType);
       res.send(Buffer.from(imageBuffer));
     } else {
-      // Return JSON for API calls
       const data = await response.json();
       res.json(data);
     }

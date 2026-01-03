@@ -17,6 +17,8 @@ import { AdminSettings, UserPassword } from "@/lib/adminStorage";
 import { ImageExportDialog } from "./ImageExportDialog";
 import { isServerAdminPasswordSet, setServerAdminPassword, verifyServerAdminPassword, getServerAdminSettings, saveServerAdminSettings, getServerUserPasswords, generatePassword, setServerUserPassword, generatePasswordsForAllServerUsers, getTautulliConfig, setTautulliConfig, uploadLogo, deleteLogo, checkLogoExists, getLogoUrl } from "@/lib/serverConfig";
 import { toast } from "sonner";
+import { Globe } from "lucide-react";
+
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -572,6 +574,23 @@ export const AdminPanel = ({
                         id="normalize-anomalies" 
                         checked={settings.normalizeTautulliAnomalies} 
                         onCheckedChange={checked => handleSettingChange('normalizeTautulliAnomalies', checked)} 
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="enable-geolocation" className="text-base flex items-center gap-2">
+                          <Globe className="w-4 h-4" />
+                          Streaming Locations
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Show a map of where streams originated from (requires IP geolocation)
+                        </p>
+                      </div>
+                      <Switch 
+                        id="enable-geolocation" 
+                        checked={settings.enableGeolocation} 
+                        onCheckedChange={checked => handleSettingChange('enableGeolocation', checked)} 
                       />
                     </div>
                   </TabsContent>

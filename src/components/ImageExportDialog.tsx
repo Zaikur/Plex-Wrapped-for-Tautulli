@@ -1,3 +1,5 @@
+// src/components/ImageExportDialog.tsx
+
 import { useState, useRef, useEffect } from "react";
 import { Image, Loader2, Check, Calendar, ImageIcon, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,8 +16,9 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { TautulliConfig, TautulliUser, WrappedStats } from "@/types/tautulli";
+import { TautulliConfig, TautulliUser, WrappedStats, StreamingLocation } from "@/types/tautulli";
 import { getHistory, calculateWrappedStats, fetchMetadataStats, getOldestHistoryYear } from "@/lib/tautulli";
+import { extractUniqueIPs, geolocateIPs } from "@/lib/geolocation";
 import { YearSelector, YearSelection, getDateRangeFromSelection, getDisplayYear, getDefaultYear } from "./YearSelector";
 import { getServerAdminSettings } from "@/lib/serverConfig";
 import { format } from "date-fns";
@@ -52,7 +55,7 @@ export const ImageExportDialog = ({
     year: getDefaultYear()
   });
   const [oldestYear, setOldestYear] = useState<number | undefined>(undefined);
-  const [renderData, setRenderData] = useState<{ user: TautulliUser; stats: WrappedStats } | null>(null);
+  const [renderData, setRenderData] = useState<{ user: TautulliUser; stats: WrappedStats; geoLocations: StreamingLocation[] } | null>(null);
   const [renderMode, setRenderMode] = useState<'full' | 'slides'>('full');
   const renderContainerRef = useRef<HTMLDivElement>(null);
   const slidesContainerRef = useRef<HTMLDivElement>(null);
@@ -231,9 +234,10 @@ export const ImageExportDialog = ({
     const endStr = format(endDate, "yyyy-MM-dd");
     const displayYear = getDisplayYear(yearSelection);
 
-    // Get the normalize anomalies setting
+    // Get admin settings
     const adminSettings = getServerAdminSettings();
     const normalizeAnomalies = adminSettings.normalizeTautulliAnomalies || false;
+    const enableGeolocation = adminSettings.enableGeolocation || false;
 
     const selectedUsers = users.filter(u => selectedUserIds.has(u.user_id));
     let completed = 0;
@@ -257,12 +261,27 @@ export const ImageExportDialog = ({
           console.warn("Failed to fetch metadata:", e);
         }
 
+        // Fetch geolocation data if enabled
+        let geoLocations: StreamingLocation[] = [];
+        if (enableGeolocation) {
+          setCurrentPhase("Locating streaming sessions...");
+          try {
+            const ipData = extractUniqueIPs(history);
+            if (ipData.size > 0) {
+              geoLocations = await geolocateIPs(ipData);
+              console.log(`[ImageExport] Found ${geoLocations.length} locations for ${userName}`);
+            }
+          } catch (e) {
+            console.warn("Failed to fetch geolocation:", e);
+          }
+        }
+
         // Capture full image
         if (exportMode === 'single' || exportMode === 'both') {
           setCurrentPhase("Rendering full report...");
           isRenderReadyRef.current = false;
           setRenderMode('full');
-          setRenderData({ user, stats });
+          setRenderData({ user, stats, geoLocations });
           
           // Wait for React to update state and render
           await new Promise(resolve => setTimeout(resolve, 200));
@@ -294,7 +313,7 @@ export const ImageExportDialog = ({
           setRenderMode('slides');
           setRenderData(null);
           await new Promise(resolve => setTimeout(resolve, 100));
-          setRenderData({ user, stats });
+          setRenderData({ user, stats, geoLocations });
           
           // Wait for React to update state and render
           await new Promise(resolve => setTimeout(resolve, 200));
@@ -518,6 +537,7 @@ export const ImageExportDialog = ({
               stats={renderData.stats}
               yearSelection={yearSelection}
               config={config}
+              geoLocations={renderData.geoLocations}
               onReady={handleRenderReady}
             />
           </div>
@@ -532,6 +552,7 @@ export const ImageExportDialog = ({
               stats={renderData.stats}
               yearSelection={yearSelection}
               config={config}
+              geoLocations={renderData.geoLocations}
               onReady={handleRenderReady}
             />
           </div>

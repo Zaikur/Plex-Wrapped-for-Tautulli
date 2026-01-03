@@ -109,12 +109,12 @@ export const ExportableWrappedReport = ({
 
   // Geolocation data processing
   const showGeolocation = adminSettings.enableGeolocation && geoLocations.length > 0;
-#  const geoCountries = showGeolocation ? [...new Set(geoLocations.map(l => l.country))] : [];
-#  const geoCities = showGeolocation ? [...new Set(geoLocations.map(l => l.city).filter(c => c !== 'Unknown'))] : [];
-#  const geoTotalSessions = showGeolocation ? geoLocations.reduce((sum, l) => sum + l.sessionCount, 0) : 0;
-#  const geoSortedLocations = showGeolocation ? [...geoLocations].sort((a, b) => b.sessionCount - a.sessionCount) : [];
-#  const geoTopLocations = geoSortedLocations.slice(0, 5);
-#  const geoInsight = showGeolocation ? generateLocationInsight(geoLocations) : '';
+//  const geoCountries = showGeolocation ? [...new Set(geoLocations.map(l => l.country))] : [];
+//  const geoCities = showGeolocation ? [...new Set(geoLocations.map(l => l.city).filter(c => c !== 'Unknown'))] : [];
+//  const geoTotalSessions = showGeolocation ? geoLocations.reduce((sum, l) => sum + l.sessionCount, 0) : 0;
+//  const geoSortedLocations = showGeolocation ? [...geoLocations].sort((a, b) => b.sessionCount - a.sessionCount) : [];
+//  const geoTopLocations = geoSortedLocations.slice(0, 5);
+//  const geoInsight = showGeolocation ? generateLocationInsight(geoLocations) : '';
 
   return (
     <div

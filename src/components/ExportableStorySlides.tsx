@@ -590,99 +590,201 @@ export const ExportableStorySlides = ({
   }
 
   // Optional Slide: GeoLocation
-  if (geoLocations.length > 0) {
-    const countries = [...new Set(geoLocations.map(l => l.country))];
-    const cities = [...new Set(geoLocations.map(l => l.city).filter(c => c !== 'Unknown'))];
-    const totalSessions = geoLocations.reduce((sum, l) => sum + l.sessionCount, 0);
-    const sortedLocations = [...geoLocations].sort((a, b) => b.sessionCount - a.sessionCount);
+  if (adminSettings.enableGeolocation && geoLocations.length > 0) {
+    // Aggregate locations by city+country to avoid duplicates
+    const locationMap = new Map<
+      string,
+      {
+        city: string;
+        region: string;
+        country: string;
+        countryCode: string;
+        lat: number;
+        lon: number;
+        sessionCount: number;
+      }
+    >();
+  
+    geoLocations.forEach((loc) => {
+      const key = `${loc.city}-${loc.country}`;
+      const existing = locationMap.get(key);
+      if (existing) {
+        existing.sessionCount += loc.sessionCount;
+      } else {
+        locationMap.set(key, {
+          city: loc.city,
+          region: loc.region,
+          country: loc.country,
+          countryCode: loc.countryCode,
+          lat: loc.lat,
+          lon: loc.lon,
+          sessionCount: loc.sessionCount,
+        });
+      }
+    });
+  
+    const aggregatedLocations = Array.from(locationMap.values());
+    const countries = [...new Set(aggregatedLocations.map(l => l.country))];
+    const cities = [...new Set(aggregatedLocations.map(l => l.city).filter(c => c !== 'Unknown'))];
+    const totalSessions = aggregatedLocations.reduce((sum, l) => sum + l.sessionCount, 0);
+    const sortedLocations = [...aggregatedLocations].sort((a, b) => b.sessionCount - a.sessionCount);
     const topLocations = sortedLocations.slice(0, 5);
-    const insight = generateLocationInsight(geoLocations);
-
+    const insight = generateLocationInsight(aggregatedLocations);
+  
     slides.push(
       <div key="geolocation" className="story-slide" style={slideStyle}>
         <div style={gradientOverlay} />
         <div style={headerStyle}>{titleWithYear}</div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '80px 40px 64px', position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', justifyContent: 'center' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '70px 36px 50px', position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', justifyContent: 'center' }}>
             <Globe size={28} color={colors.cyan} />
             <span style={{ fontSize: '24px', fontWeight: 700, color: colors.text }}>Streaming Globe</span>
           </div>
-
-          {/* Insight */}
+  
+          {/* Insight - no gradient, just colored text */}
           <p style={{ 
-            fontSize: '16px', 
+            fontSize: '15px', 
             fontWeight: 600, 
             textAlign: 'center', 
-            marginBottom: '32px',
-            background: `linear-gradient(90deg, ${colors.cyan}, ${colors.pink})`,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
+            marginBottom: '20px',
+            color: colors.cyan,
+            lineHeight: 1.4,
           }}>
             {insight}
           </p>
-
-          {/* Stats Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '32px' }}>
-            <div style={{ textAlign: 'center', padding: '16px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
-              <p style={{ fontSize: '28px', fontWeight: 700, color: colors.cyan, margin: 0 }}>{countries.length}</p>
-              <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>{countries.length === 1 ? 'Country' : 'Countries'}</p>
+  
+          {/* Mini Map Visualization */}
+          <div style={{ 
+            position: 'relative',
+            height: '140px',
+            marginBottom: '20px',
+            backgroundColor: 'rgba(0, 212, 170, 0.05)',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            border: '1px solid rgba(0, 212, 170, 0.2)',
+          }}>
+            {/* World map dots representation */}
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                {/* Plot location dots based on lat/lon */}
+                {aggregatedLocations.slice(0, 10).map((loc, i) => {
+                  // Convert lat/lon to percentage position
+                  const x = ((loc.lon + 180) / 360) * 100;
+                  const y = ((90 - loc.lat) / 180) * 100;
+                  const maxSessions = Math.max(...aggregatedLocations.map(l => l.sessionCount), 1);
+                  const size = Math.min(10 + (loc.sessionCount / maxSessions) * 14, 24);
+                  
+                  return (
+                    <div
+                      key={`${loc.city}-${loc.country}-${i}`}
+                      style={{
+                        position: 'absolute',
+                        left: `${Math.max(8, Math.min(92, x))}%`,
+                        top: `${Math.max(12, Math.min(88, y))}%`,
+                        width: `${size}px`,
+                        height: `${size}px`,
+                        borderRadius: '50%',
+                        backgroundColor: colors.cyan,
+                        border: `2px solid ${colors.purple}`,
+                        opacity: 0.85,
+                        transform: 'translate(-50%, -50%)',
+                        boxShadow: `0 0 ${size}px ${colors.cyan}50`,
+                      }}
+                    />
+                  );
+                })}
+              </div>
             </div>
-            <div style={{ textAlign: 'center', padding: '16px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
-              <p style={{ fontSize: '28px', fontWeight: 700, color: colors.pink, margin: 0 }}>{cities.length}</p>
-              <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>{cities.length === 1 ? 'City' : 'Cities'}</p>
+            {/* Globe icon overlay */}
+            <div style={{
+              position: 'absolute',
+              bottom: '10px',
+              right: '10px',
+              opacity: 0.25,
+            }}>
+              <Globe size={28} color={colors.cyan} />
             </div>
-            <div style={{ textAlign: 'center', padding: '16px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
-              <p style={{ fontSize: '28px', fontWeight: 700, color: colors.purple, margin: 0 }}>{totalSessions}</p>
-              <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>Sessions</p>
+            {/* Label */}
+            <div style={{
+              position: 'absolute',
+              top: '10px',
+              left: '12px',
+              fontSize: '10px',
+              color: colors.textMuted,
+              opacity: 0.7,
+            }}>
+              🌍 Your streaming locations
             </div>
           </div>
-
+  
+          {/* Stats Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ textAlign: 'center', padding: '14px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
+              <p style={{ fontSize: '26px', fontWeight: 700, color: colors.cyan, margin: 0 }}>{countries.length}</p>
+              <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0 }}>{countries.length === 1 ? 'Country' : 'Countries'}</p>
+            </div>
+            <div style={{ textAlign: 'center', padding: '14px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
+              <p style={{ fontSize: '26px', fontWeight: 700, color: colors.pink, margin: 0 }}>{cities.length}</p>
+              <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0 }}>{cities.length === 1 ? 'City' : 'Cities'}</p>
+            </div>
+            <div style={{ textAlign: 'center', padding: '14px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
+              <p style={{ fontSize: '26px', fontWeight: 700, color: colors.purple, margin: 0 }}>{totalSessions}</p>
+              <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0 }}>Sessions</p>
+            </div>
+          </div>
+  
           {/* Top Locations */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h4 style={{ fontSize: '14px', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px', textAlign: 'center' }}>
+            <h4 style={{ fontSize: '12px', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px', textAlign: 'center' }}>
               Top Streaming Spots
             </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {topLocations.map((loc, i) => (
                 <div 
                   key={`${loc.city}-${loc.country}`} 
                   style={{ 
                     display: 'flex', 
                     alignItems: 'center', 
-                    gap: '12px', 
-                    padding: '12px 16px', 
+                    gap: '10px', 
+                    padding: '10px 14px', 
                     backgroundColor: i === 0 ? `${colors.cyan}15` : colors.cardAlt, 
                     borderRadius: '12px',
                     border: i === 0 ? `1px solid ${colors.cyan}40` : 'none',
                   }}
                 >
                   <div style={{ 
-                    width: '28px', 
-                    height: '28px', 
+                    width: '26px', 
+                    height: '26px', 
                     borderRadius: '50%', 
                     background: `linear-gradient(135deg, ${colors.cyan}40, ${colors.purple}40)`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '12px',
+                    fontSize: '11px',
                     fontWeight: 700,
                     color: colors.text,
+                    flexShrink: 0,
                   }}>
                     {i + 1}
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: '14px', fontWeight: 600, color: colors.text, margin: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: colors.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {loc.city !== "Unknown" ? loc.city : loc.region || loc.country}
                     </p>
-                    <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0 }}>
+                    <p style={{ fontSize: '10px', color: colors.textMuted, margin: 0 }}>
                       {loc.city !== "Unknown" && loc.country !== loc.city ? `${loc.country} ` : ''}
                       {getFlagEmoji(loc.countryCode)}
                     </p>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <MapPin size={14} color={colors.textMuted} />
-                    <span style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>{loc.sessionCount}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                    <MapPin size={12} color={colors.textMuted} />
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: colors.text }}>{loc.sessionCount}</span>
                   </div>
                 </div>
               ))}

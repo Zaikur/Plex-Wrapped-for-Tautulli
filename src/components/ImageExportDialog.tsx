@@ -1,7 +1,7 @@
 // src/components/ImageExportDialog.tsx
 
 import { useState, useRef, useEffect } from "react";
-import { Image, Loader2, Check, Calendar, ImageIcon, LayoutGrid } from "lucide-react";
+import { Image, Loader2, Check, Calendar, ImageIcon, LayoutGrid, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,9 @@ interface ImageExportDialogProps {
 }
 
 type ExportMode = 'single' | 'slides' | 'both';
+
+// Special ID for "All Users Combined"
+const ALL_USERS_COMBINED_ID = -999;
 
 export const ImageExportDialog = ({
   isOpen,
@@ -80,6 +83,7 @@ export const ImageExportDialog = ({
   };
 
   const toggleAll = () => {
+    // Don't include ALL_USERS_COMBINED_ID in "select all"
     if (selectedUserIds.size === users.length) {
       setSelectedUserIds(new Set());
     } else {
@@ -219,6 +223,247 @@ export const ImageExportDialog = ({
     return blobs;
   };
 
+  // Helper to merge stats from multiple users
+  const mergeStats = (statsArray: WrappedStats[]): WrappedStats => {
+    if (statsArray.length === 0) {
+      // Return empty stats
+      return {
+        totalWatchTime: 0,
+        totalMovies: 0,
+        totalShows: 0,
+        totalEpisodes: 0,
+        topMovies: [],
+        topShows: [],
+        topGenres: [],
+        topActors: [],
+        watchByMonth: [],
+        watchByDay: [],
+        watchByHour: [],
+        platforms: [],
+        uniqueTitles: 0,
+        avgDailyWatchTime: 0,
+        longestStreak: 0,
+        weekendPercentage: 0,
+        lateNightSessions: 0,
+        earlyBirdSessions: 0,
+      };
+    }
+
+    if (statsArray.length === 1) {
+      return statsArray[0];
+    }
+
+    // Merge all stats
+    const merged: WrappedStats = {
+      totalWatchTime: 0,
+      totalMovies: 0,
+      totalShows: 0,
+      totalEpisodes: 0,
+      topMovies: [],
+      topShows: [],
+      topGenres: [],
+      topActors: [],
+      watchByMonth: [],
+      watchByDay: [],
+      watchByHour: [],
+      platforms: [],
+      uniqueTitles: 0,
+      avgDailyWatchTime: 0,
+      longestStreak: 0,
+      weekendPercentage: 0,
+      lateNightSessions: 0,
+      earlyBirdSessions: 0,
+      morningWatchTime: 0,
+      afternoonWatchTime: 0,
+      eveningWatchTime: 0,
+      nightWatchTime: 0,
+    };
+
+    // Sum up simple numeric values
+    statsArray.forEach(s => {
+      merged.totalWatchTime += s.totalWatchTime || 0;
+      merged.totalMovies += s.totalMovies || 0;
+      merged.totalShows += s.totalShows || 0;
+      merged.totalEpisodes += s.totalEpisodes || 0;
+      merged.uniqueTitles += s.uniqueTitles || 0;
+      merged.lateNightSessions += s.lateNightSessions || 0;
+      merged.earlyBirdSessions += s.earlyBirdSessions || 0;
+      merged.morningWatchTime = (merged.morningWatchTime || 0) + (s.morningWatchTime || 0);
+      merged.afternoonWatchTime = (merged.afternoonWatchTime || 0) + (s.afternoonWatchTime || 0);
+      merged.eveningWatchTime = (merged.eveningWatchTime || 0) + (s.eveningWatchTime || 0);
+      merged.nightWatchTime = (merged.nightWatchTime || 0) + (s.nightWatchTime || 0);
+    });
+
+    // Average for avgDailyWatchTime
+    merged.avgDailyWatchTime = statsArray.reduce((sum, s) => sum + (s.avgDailyWatchTime || 0), 0) / statsArray.length;
+
+    // Max for longestStreak
+    merged.longestStreak = Math.max(...statsArray.map(s => s.longestStreak || 0));
+
+    // Average for weekendPercentage
+    merged.weekendPercentage = statsArray.reduce((sum, s) => sum + (s.weekendPercentage || 0), 0) / statsArray.length;
+
+    // Merge topMovies by title
+    const movieMap = new Map<string, { title: string; watchCount: number; thumb?: string }>();
+    statsArray.forEach(s => {
+      s.topMovies?.forEach(m => {
+        const existing = movieMap.get(m.title);
+        if (existing) {
+          existing.watchCount += m.watchCount;
+        } else {
+          movieMap.set(m.title, { ...m });
+        }
+      });
+    });
+    merged.topMovies = Array.from(movieMap.values())
+      .sort((a, b) => b.watchCount - a.watchCount)
+      .slice(0, 10);
+
+    // Merge topShows by title
+    const showMap = new Map<string, { title: string; episodeCount: number; thumb?: string }>();
+    statsArray.forEach(s => {
+      s.topShows?.forEach(sh => {
+        const existing = showMap.get(sh.title);
+        if (existing) {
+          existing.episodeCount += sh.episodeCount;
+        } else {
+          showMap.set(sh.title, { ...sh });
+        }
+      });
+    });
+    merged.topShows = Array.from(showMap.values())
+      .sort((a, b) => b.episodeCount - a.episodeCount)
+      .slice(0, 10);
+
+    // Set topMovie and topShow
+    if (merged.topMovies.length > 0) {
+      merged.topMovie = merged.topMovies[0];
+    }
+    if (merged.topShows.length > 0) {
+      merged.topShow = merged.topShows[0];
+    }
+
+    // Merge topGenres
+    const genreMap = new Map<string, { genre: string; count: number; watchTime: number }>();
+    statsArray.forEach(s => {
+      s.topGenres?.forEach(g => {
+        const existing = genreMap.get(g.genre);
+        if (existing) {
+          existing.count += g.count;
+          existing.watchTime += g.watchTime;
+        } else {
+          genreMap.set(g.genre, { ...g });
+        }
+      });
+    });
+    merged.topGenres = Array.from(genreMap.values())
+      .sort((a, b) => b.watchTime - a.watchTime)
+      .slice(0, 10);
+
+    // Merge topActors
+    const actorMap = new Map<string, { name: string; titleCount: number }>();
+    statsArray.forEach(s => {
+      s.topActors?.forEach(a => {
+        const existing = actorMap.get(a.name);
+        if (existing) {
+          existing.titleCount += a.titleCount;
+        } else {
+          actorMap.set(a.name, { ...a });
+        }
+      });
+    });
+    merged.topActors = Array.from(actorMap.values())
+      .sort((a, b) => b.titleCount - a.titleCount)
+      .slice(0, 10);
+
+    // Merge watchByMonth
+    const monthMap = new Map<string, { month: string; hours: number }>();
+    statsArray.forEach(s => {
+      s.watchByMonth?.forEach(m => {
+        const existing = monthMap.get(m.month);
+        if (existing) {
+          existing.hours += m.hours;
+        } else {
+          monthMap.set(m.month, { ...m });
+        }
+      });
+    });
+    // Sort by month order
+    const monthOrder = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    merged.watchByMonth = monthOrder
+      .map(m => monthMap.get(m) || { month: m, hours: 0 });
+
+    // Merge watchByDay
+    const dayMap = new Map<string, { day: string; hours: number }>();
+    statsArray.forEach(s => {
+      s.watchByDay?.forEach(d => {
+        const existing = dayMap.get(d.day);
+        if (existing) {
+          existing.hours += d.hours;
+        } else {
+          dayMap.set(d.day, { ...d });
+        }
+      });
+    });
+    const dayOrder = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    merged.watchByDay = dayOrder
+      .map(d => dayMap.get(d) || { day: d, hours: 0 });
+
+    // Merge watchByHour
+    const hourMap = new Map<number, { hour: number; minutes: number }>();
+    statsArray.forEach(s => {
+      s.watchByHour?.forEach(h => {
+        const existing = hourMap.get(h.hour);
+        if (existing) {
+          existing.minutes += h.minutes;
+        } else {
+          hourMap.set(h.hour, { ...h });
+        }
+      });
+    });
+    merged.watchByHour = Array.from({ length: 24 }, (_, i) => 
+      hourMap.get(i) || { hour: i, minutes: 0 }
+    );
+
+    // Merge platforms
+    const platformMap = new Map<string, { name: string; count: number }>();
+    statsArray.forEach(s => {
+      s.platforms?.forEach(p => {
+        const existing = platformMap.get(p.name);
+        if (existing) {
+          existing.count += p.count;
+        } else {
+          platformMap.set(p.name, { ...p });
+        }
+      });
+    });
+    merged.platforms = Array.from(platformMap.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // Find mostBingedDay (max across all users)
+    const allBingedDays = statsArray
+      .filter(s => s.mostBingedDay)
+      .map(s => s.mostBingedDay!);
+    if (allBingedDays.length > 0) {
+      merged.mostBingedDay = allBingedDays.reduce((max, d) => 
+        d.duration > max.duration ? d : max
+      );
+    }
+
+    // Find mostActiveDay (max hours)
+    const allActiveDays = statsArray
+      .filter(s => s.mostActiveDay)
+      .map(s => s.mostActiveDay!);
+    if (allActiveDays.length > 0) {
+      merged.mostActiveDay = allActiveDays.reduce((max, d) => 
+        d.hours > max.hours ? d : max
+      );
+    }
+
+    return merged;
+  };
+
   const handleExport = async () => {
     if (selectedUserIds.size === 0) {
       toast.error("Please select at least one user");
@@ -239,10 +484,21 @@ export const ImageExportDialog = ({
     const normalizeAnomalies = adminSettings.normalizeTautulliAnomalies || false;
     const enableGeolocation = adminSettings.enableGeolocation || false;
 
-    const selectedUsers = users.filter(u => selectedUserIds.has(u.user_id));
+    // Check if "All Users Combined" is selected
+    const includeAllCombined = selectedUserIds.has(ALL_USERS_COMBINED_ID);
+    const individualUserIds = Array.from(selectedUserIds).filter(id => id !== ALL_USERS_COMBINED_ID);
+    const selectedUsers = users.filter(u => individualUserIds.includes(u.user_id));
+    
+    // Total items to process
+    const totalItems = selectedUsers.length + (includeAllCombined ? 1 : 0);
     let completed = 0;
 
     try {
+      // Store stats for combined export
+      const allStats: WrappedStats[] = [];
+      const allGeoLocations: StreamingLocation[] = [];
+
+      // Process individual users
       for (const user of selectedUsers) {
         const userName = user.friendly_name || user.username;
         const safeFileName = userName.replace(/[^a-zA-Z0-9]/g, "_");
@@ -261,6 +517,9 @@ export const ImageExportDialog = ({
           console.warn("Failed to fetch metadata:", e);
         }
 
+        // Store for combined
+        allStats.push(stats);
+
         // Fetch geolocation data if enabled
         let geoLocations: StreamingLocation[] = [];
         if (enableGeolocation) {
@@ -270,6 +529,7 @@ export const ImageExportDialog = ({
             if (ipData.size > 0) {
               geoLocations = await geolocateIPs(ipData);
               console.log(`[ImageExport] Found ${geoLocations.length} locations for ${userName}`);
+              allGeoLocations.push(...geoLocations);
             }
           } catch (e) {
             console.warn("Failed to fetch geolocation:", e);
@@ -341,7 +601,134 @@ export const ImageExportDialog = ({
         }
 
         completed++;
-        setProgress((completed / selectedUsers.length) * 100);
+        setProgress((completed / totalItems) * 100);
+      }
+
+      // Process "All Users Combined" if selected
+      if (includeAllCombined) {
+        setCurrentUser("All Users Combined");
+        
+        // If we haven't fetched any stats yet (only combined was selected), fetch all users
+        if (allStats.length === 0) {
+          setCurrentPhase("Fetching all users' watch history...");
+          for (const user of users) {
+            const history = await getHistory(config, user.user_id, startStr, endStr, 5000, normalizeAnomalies);
+            let stats = calculateWrappedStats(history);
+            try {
+              const metaStats = await fetchMetadataStats(config, history);
+              stats = { ...stats, ...metaStats };
+            } catch (e) {
+              console.warn("Failed to fetch metadata:", e);
+            }
+            allStats.push(stats);
+
+            if (enableGeolocation) {
+              try {
+                const ipData = extractUniqueIPs(history);
+                if (ipData.size > 0) {
+                  const geoLocs = await geolocateIPs(ipData);
+                  allGeoLocations.push(...geoLocs);
+                }
+              } catch (e) {
+                console.warn("Failed to fetch geolocation:", e);
+              }
+            }
+          }
+        }
+
+        setCurrentPhase("Merging statistics...");
+        const combinedStats = mergeStats(allStats);
+        
+        // Deduplicate geo locations by city+country
+        const geoMap = new Map<string, StreamingLocation>();
+        allGeoLocations.forEach(loc => {
+          const key = `${loc.city}-${loc.country}`;
+          const existing = geoMap.get(key);
+          if (existing) {
+            existing.sessionCount += loc.sessionCount;
+            if (loc.sessionDates) {
+              existing.sessionDates = [...(existing.sessionDates || []), ...loc.sessionDates];
+            }
+          } else {
+            geoMap.set(key, { ...loc });
+          }
+        });
+        const combinedGeoLocations = Array.from(geoMap.values());
+
+        // Create a pseudo-user for "All Users Combined"
+        const combinedUser: TautulliUser = {
+          user_id: ALL_USERS_COMBINED_ID,
+          username: "all_users",
+          friendly_name: "All Users",
+          email: "",
+          is_active: 1,
+          is_admin: 0,
+          is_home_user: 0,
+          is_allow_sync: 0,
+          is_restricted: 0,
+          thumb: "",
+        };
+
+        // Capture full image for combined
+        if (exportMode === 'single' || exportMode === 'both') {
+          setCurrentPhase("Rendering combined full report...");
+          isRenderReadyRef.current = false;
+          setRenderMode('full');
+          setRenderData({ user: combinedUser, stats: combinedStats, geoLocations: combinedGeoLocations });
+          
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          try {
+            await waitForRender('full');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            if (renderContainerRef.current) {
+              setCurrentPhase("Capturing combined full image...");
+              const reportElement = renderContainerRef.current.querySelector('.export-report') as HTMLElement;
+              if (reportElement) {
+                const imageBlob = await captureFullImage(reportElement);
+                zip.file(`All_Users_Combined_Plex_Wrapped_${displayYear.replace(/\s/g, '_')}.png`, imageBlob);
+              }
+            }
+          } catch (e) {
+            console.error("Combined full image capture failed:", e);
+            toast.error("Failed to capture combined full image");
+          }
+        }
+
+        // Capture slides for combined
+        if (exportMode === 'slides' || exportMode === 'both') {
+          setCurrentPhase("Rendering combined story slides...");
+          isRenderReadyRef.current = false;
+          setRenderMode('slides');
+          setRenderData(null);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          setRenderData({ user: combinedUser, stats: combinedStats, geoLocations: combinedGeoLocations });
+          
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          try {
+            await waitForRender('slides');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            if (slidesContainerRef.current) {
+              setCurrentPhase("Capturing combined story slides...");
+              const slides = await captureSlides(slidesContainerRef.current);
+              if (slides.length > 0) {
+                const slidesFolder = zip.folder("All_Users_Combined_Slides");
+                slides.forEach((blob, i) => {
+                  slidesFolder?.file(`slide_${String(i + 1).padStart(2, '0')}.png`, blob);
+                });
+              }
+            }
+          } catch (e) {
+            console.error("Combined slides capture failed:", e);
+            toast.error("Failed to capture combined slides");
+          }
+        }
+
+        completed++;
+        setProgress((completed / totalItems) * 100);
       }
 
       // Clear render data
@@ -355,7 +742,7 @@ export const ImageExportDialog = ({
         return;
       }
 
-      if (selectedUsers.length === 1 && exportMode === 'single') {
+      if (totalItems === 1 && exportMode === 'single') {
         const files = Object.keys(zip.files);
         if (files.length > 0) {
           const blob = await zip.files[files[0]].async('blob');
@@ -366,7 +753,7 @@ export const ImageExportDialog = ({
         saveAs(zipBlob, `Plex_Wrapped_${displayYear.replace(/\s/g, '_')}_Export.zip`);
       }
 
-      toast.success(`Successfully exported ${selectedUsers.length} report(s)`);
+      toast.success(`Successfully exported ${totalItems} report(s)`);
       onClose();
     } catch (error) {
       console.error("Export error:", error);
@@ -401,6 +788,12 @@ export const ImageExportDialog = ({
     pointerEvents: 'none',
     zIndex: -9999,
   };
+
+  // Count for display (excluding the special combined ID)
+  const displayCount = selectedUserIds.has(ALL_USERS_COMBINED_ID) 
+    ? selectedUserIds.size - 1 + (selectedUserIds.size > 1 ? 0 : 1) // If only combined selected, count as 1
+    : selectedUserIds.size;
+  const totalExportCount = selectedUserIds.size;
 
   return (
     <>
@@ -480,15 +873,40 @@ export const ImageExportDialog = ({
 
               <div className="flex items-center justify-between py-2 border-b">
                 <Label className="text-sm font-medium">
-                  Select Users ({selectedUserIds.size} of {users.length})
+                  Select Users ({totalExportCount} selected)
                 </Label>
                 <Button variant="ghost" size="sm" onClick={toggleAll}>
                   {selectedUserIds.size === users.length ? "Deselect All" : "Select All"}
                 </Button>
               </div>
 
-              <ScrollArea className="h-[200px] pr-4">
+              <ScrollArea className="h-[250px] pr-4">
                 <div className="space-y-2 py-2">
+                  {/* All Users Combined option */}
+                  <div
+                    className="flex items-center space-x-3 p-2 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/20 hover:bg-primary/20 cursor-pointer"
+                    onClick={() => toggleUser(ALL_USERS_COMBINED_ID)}
+                  >
+                    <Checkbox
+                      id="user-all-combined"
+                      checked={selectedUserIds.has(ALL_USERS_COMBINED_ID)}
+                      onCheckedChange={() => toggleUser(ALL_USERS_COMBINED_ID)}
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor="user-all-combined" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                        <Users className="w-4 h-4 text-primary" />
+                        All Users Combined
+                      </Label>
+                      <p className="text-xs text-muted-foreground">Aggregate stats from all {users.length} users</p>
+                    </div>
+                    {selectedUserIds.has(ALL_USERS_COMBINED_ID) && (
+                      <Check className="w-4 h-4 text-primary" />
+                    )}
+                  </div>
+
+                  <div className="border-t my-2" />
+
+                  {/* Individual users */}
                   {users.map((user) => (
                     <div
                       key={user.user_id}
@@ -520,7 +938,7 @@ export const ImageExportDialog = ({
                 <Button variant="outline" onClick={onClose}>Cancel</Button>
                 <Button onClick={handleExport} disabled={selectedUserIds.size === 0}>
                   <Image className="w-4 h-4 mr-2" />
-                  Export {selectedUserIds.size} Report{selectedUserIds.size !== 1 ? 's' : ''}
+                  Export {totalExportCount} Report{totalExportCount !== 1 ? 's' : ''}
                 </Button>
               </DialogFooter>
             </>

@@ -36,6 +36,38 @@ const getFlagEmoji = (countryCode: string): string => {
   return String.fromCodePoint(...codePoints);
 };
 
+// Simple world map SVG as a background
+const WorldMapSVG = () => (
+  <svg
+    viewBox="0 0 360 180"
+    style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      opacity: 0.15,
+    }}
+    preserveAspectRatio="xMidYMid slice"
+  >
+    {/* Simplified world continents - rough outlines */}
+    <g fill="currentColor" stroke="none">
+      {/* North America */}
+      <path d="M30,25 L60,20 L80,25 L95,35 L100,50 L95,65 L85,75 L70,80 L55,75 L40,65 L30,50 L25,35 Z" />
+      {/* South America */}
+      <path d="M70,85 L85,90 L90,105 L85,125 L75,140 L60,145 L55,130 L60,110 L65,95 Z" />
+      {/* Europe */}
+      <path d="M160,25 L180,20 L195,25 L200,35 L195,45 L180,50 L165,45 L160,35 Z" />
+      {/* Africa */}
+      <path d="M160,55 L185,50 L200,60 L205,80 L195,105 L175,115 L155,105 L150,80 L155,65 Z" />
+      {/* Asia */}
+      <path d="M200,20 L260,15 L290,25 L300,40 L295,55 L280,65 L250,70 L220,65 L200,55 L195,40 Z" />
+      {/* Australia */}
+      <path d="M270,100 L295,95 L310,105 L305,120 L285,125 L270,115 Z" />
+    </g>
+  </svg>
+);
+
 interface ExportableWrappedReportProps {
   user: TautulliUser;
   stats: WrappedStats;
@@ -109,12 +141,6 @@ export const ExportableWrappedReport = ({
 
   // Geolocation data processing
   const showGeolocation = adminSettings.enableGeolocation && geoLocations.length > 0;
-//  const geoCountries = showGeolocation ? [...new Set(geoLocations.map(l => l.country))] : [];
-//  const geoCities = showGeolocation ? [...new Set(geoLocations.map(l => l.city).filter(c => c !== 'Unknown'))] : [];
-//  const geoTotalSessions = showGeolocation ? geoLocations.reduce((sum, l) => sum + l.sessionCount, 0) : 0;
-//  const geoSortedLocations = showGeolocation ? [...geoLocations].sort((a, b) => b.sessionCount - a.sessionCount) : [];
-//  const geoTopLocations = geoSortedLocations.slice(0, 5);
-//  const geoInsight = showGeolocation ? generateLocationInsight(geoLocations) : '';
 
   return (
     <div
@@ -561,7 +587,7 @@ export const ExportableWrappedReport = ({
                 {insight}
               </p>
         
-              {/* Mini Map Visualization */}
+              {/* Mini Map Visualization with SVG background */}
               <div style={{ 
                 position: 'relative',
                 height: '120px',
@@ -570,7 +596,11 @@ export const ExportableWrappedReport = ({
                 borderRadius: '12px',
                 overflow: 'hidden',
                 border: '1px solid rgba(0, 212, 170, 0.2)',
+                color: colors.cyan,
               }}>
+                {/* World map SVG background */}
+                <WorldMapSVG />
+                
                 {/* World map dots representation */}
                 <div style={{
                   position: 'absolute',
@@ -668,10 +698,12 @@ export const ExportableWrappedReport = ({
                           fontSize: '12px',
                           fontWeight: 700,
                           color: colors.text,
+                          lineHeight: 1,
+                          flexShrink: 0,
                         }}>
                           {i + 1}
                         </div>
-                        <div style={{ flex: 1 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontSize: '14px', fontWeight: 600, color: colors.text, margin: 0 }}>
                             {loc.city !== "Unknown" ? loc.city : loc.region || loc.country}
                           </p>
@@ -680,7 +712,7 @@ export const ExportableWrappedReport = ({
                             {getFlagEmoji(loc.countryCode)}
                           </p>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                           <MapPin size={14} color={colors.textMuted} />
                           <span style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>{loc.sessionCount} streams</span>
                         </div>

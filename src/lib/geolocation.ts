@@ -529,7 +529,7 @@ export const generateLocationInsight = (locations: StreamingLocation[]): string 
   }
 
   if (countries.length >= 5) {
-    return `World traveler alert! 🌍 Streamed from ${countries.length} different countries`;
+    return `World traveler alert! Streamed from ${countries.length} different countries`;
   }
 
   if (countries.length >= 3) {

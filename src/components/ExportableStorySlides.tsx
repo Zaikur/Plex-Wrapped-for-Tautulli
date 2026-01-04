@@ -635,37 +635,48 @@ export const ExportableStorySlides = ({
       <div key="geolocation" className="story-slide" style={slideStyle}>
         <div style={gradientOverlay} />
         <div style={headerStyle}>{titleWithYear}</div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '70px 36px 50px', position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', justifyContent: 'center' }}>
-            <Globe size={28} color={colors.cyan} />
-            <span style={{ fontSize: '24px', fontWeight: 700, color: colors.text }}>Streaming Globe</span>
+        <div style={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          padding: '70px 36px 50px', 
+          position: 'relative', 
+          zIndex: 1,
+          justifyContent: 'space-between',
+        }}>
+          {/* Top section */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', justifyContent: 'center' }}>
+              <Globe size={28} color={colors.cyan} />
+              <span style={{ fontSize: '24px', fontWeight: 700, color: colors.text }}>Streaming Globe</span>
+            </div>
+  
+            {/* Insight - no gradient, just colored text */}
+            <p style={{ 
+              fontSize: '15px', 
+              fontWeight: 600, 
+              textAlign: 'center', 
+              marginBottom: '20px',
+              color: colors.cyan,
+              lineHeight: 1.4,
+            }}>
+              {insight}
+            </p>
           </div>
   
-          {/* Insight - no gradient, just colored text */}
-          <p style={{ 
-            fontSize: '15px', 
-            fontWeight: 600, 
-            textAlign: 'center', 
-            marginBottom: '16px',
-            color: colors.cyan,
-            lineHeight: 1.4,
-          }}>
-            {insight}
-          </p>
-  
-          {/* Globe Image */}
+          {/* Globe Image - centered */}
           <div style={{ 
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            marginBottom: '16px',
+            marginBottom: '20px',
           }}>
             <img 
               src="/globe.png" 
               alt="Streaming Globe"
               style={{
-                width: '140px',
-                height: '140px',
+                width: '160px',
+                height: '160px',
                 objectFit: 'contain',
               }}
               crossOrigin="anonymous"
@@ -673,27 +684,27 @@ export const ExportableStorySlides = ({
           </div>
   
           {/* Stats Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
-            <div style={{ textAlign: 'center', padding: '12px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
-              <p style={{ fontSize: '24px', fontWeight: 700, color: colors.cyan, margin: 0, lineHeight: 1.2 }}>{countries.length}</p>
-              <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{countries.length === 1 ? 'Country' : 'Countries'}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ textAlign: 'center', padding: '14px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
+              <p style={{ fontSize: '28px', fontWeight: 700, color: colors.cyan, margin: 0, lineHeight: 1.2 }}>{countries.length}</p>
+              <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{countries.length === 1 ? 'Country' : 'Countries'}</p>
             </div>
-            <div style={{ textAlign: 'center', padding: '12px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
-              <p style={{ fontSize: '24px', fontWeight: 700, color: colors.pink, margin: 0, lineHeight: 1.2 }}>{cities.length}</p>
-              <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{cities.length === 1 ? 'City' : 'Cities'}</p>
+            <div style={{ textAlign: 'center', padding: '14px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
+              <p style={{ fontSize: '28px', fontWeight: 700, color: colors.pink, margin: 0, lineHeight: 1.2 }}>{cities.length}</p>
+              <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{cities.length === 1 ? 'City' : 'Cities'}</p>
             </div>
-            <div style={{ textAlign: 'center', padding: '12px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
-              <p style={{ fontSize: '24px', fontWeight: 700, color: colors.purple, margin: 0, lineHeight: 1.2 }}>{totalSessions}</p>
-              <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>Sessions</p>
+            <div style={{ textAlign: 'center', padding: '14px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
+              <p style={{ fontSize: '28px', fontWeight: 700, color: colors.purple, margin: 0, lineHeight: 1.2 }}>{totalSessions}</p>
+              <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>Sessions</p>
             </div>
           </div>
   
           {/* Top Locations */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <h4 style={{ fontSize: '12px', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', textAlign: 'center' }}>
+            <h4 style={{ fontSize: '12px', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px', textAlign: 'center' }}>
               Top Streaming Spots
             </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {topLocations.map((loc, i) => (
                 <div 
                   key={`${loc.city}-${loc.country}`} 
@@ -701,41 +712,56 @@ export const ExportableStorySlides = ({
                     display: 'flex', 
                     alignItems: 'center', 
                     gap: '10px', 
-                    padding: '8px 12px', 
+                    padding: '10px 12px', 
                     backgroundColor: i === 0 ? `${colors.cyan}15` : colors.cardAlt, 
                     borderRadius: '10px',
                     border: i === 0 ? `1px solid ${colors.cyan}40` : 'none',
-                    minHeight: '44px',
                   }}
                 >
                   <div style={{ 
-                    width: '24px', 
-                    height: '24px', 
+                    width: '26px', 
+                    height: '26px', 
                     borderRadius: '50%', 
                     background: `linear-gradient(135deg, ${colors.cyan}40, ${colors.purple}40)`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: colors.text,
                     flexShrink: 0,
-                    lineHeight: 1,
                   }}>
-                    {i + 1}
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: colors.text,
+                      lineHeight: 1,
+                      marginTop: '-1px', // Fine-tune vertical position
+                    }}>
+                      {i + 1}
+                    </span>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: '13px', fontWeight: 600, color: colors.text, margin: 0, lineHeight: 1.3 }}>
+                    <p style={{ fontSize: '14px', fontWeight: 600, color: colors.text, margin: 0, lineHeight: 1.3 }}>
                       {loc.city !== "Unknown" ? loc.city : loc.region || loc.country}
                     </p>
-                    <p style={{ fontSize: '10px', color: colors.textMuted, margin: 0, lineHeight: 1.3 }}>
+                    <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0, lineHeight: 1.3 }}>
                       {loc.city !== "Unknown" && loc.country !== loc.city ? `${loc.country} ` : ''}
                       {getFlagEmoji(loc.countryCode)}
                     </p>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                    <MapPin size={12} color={colors.textMuted} />
-                    <span style={{ fontSize: '12px', fontWeight: 500, color: colors.text }}>{loc.sessionCount}</span>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '4px', 
+                    flexShrink: 0,
+                  }}>
+                    <MapPin size={12} color={colors.textMuted} style={{ marginTop: '-1px' }} />
+                    <span style={{ 
+                      fontSize: '12px', 
+                      fontWeight: 500, 
+                      color: colors.text,
+                      lineHeight: 1,
+                    }}>
+                      {loc.sessionCount}
+                    </span>
                   </div>
                 </div>
               ))}

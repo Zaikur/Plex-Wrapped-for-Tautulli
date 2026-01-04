@@ -1,7 +1,5 @@
-// src/components/ImageExportDialog.tsx
-
 import { useState, useRef, useEffect } from "react";
-import { Image, Loader2, Check, Calendar, ImageIcon, LayoutGrid, Users } from "lucide-react";
+import { Image, Loader2, Check, Calendar, ImageIcon, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -16,9 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { TautulliConfig, TautulliUser, WrappedStats, StreamingLocation } from "@/types/tautulli";
+import { TautulliConfig, TautulliUser, WrappedStats } from "@/types/tautulli";
 import { getHistory, calculateWrappedStats, fetchMetadataStats, getOldestHistoryYear } from "@/lib/tautulli";
-import { extractUniqueIPs, geolocateIPs } from "@/lib/geolocation";
 import { YearSelector, YearSelection, getDateRangeFromSelection, getDisplayYear, getDefaultYear } from "./YearSelector";
 import { getServerAdminSettings } from "@/lib/serverConfig";
 import { format } from "date-fns";
@@ -37,7 +34,6 @@ interface ImageExportDialogProps {
 }
 
 type ExportMode = 'single' | 'slides' | 'both';
-type SelectionMode = 'individual' | 'combined';
 
 export const ImageExportDialog = ({
   isOpen,
@@ -45,7 +41,6 @@ export const ImageExportDialog = ({
   users,
   config,
 }: ImageExportDialogProps) => {
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>('individual');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<number>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -57,7 +52,7 @@ export const ImageExportDialog = ({
     year: getDefaultYear()
   });
   const [oldestYear, setOldestYear] = useState<number | undefined>(undefined);
-  const [renderData, setRenderData] = useState<{ user: TautulliUser; stats: WrappedStats; geoLocations: StreamingLocation[] } | null>(null);
+  const [renderData, setRenderData] = useState<{ user: TautulliUser; stats: WrappedStats } | null>(null);
   const [renderMode, setRenderMode] = useState<'full' | 'slides'>('full');
   const renderContainerRef = useRef<HTMLDivElement>(null);
   const slidesContainerRef = useRef<HTMLDivElement>(null);
@@ -70,11 +65,6 @@ export const ImageExportDialog = ({
       });
     }
   }, [isOpen, config]);
-
-  // Reset selection when switching modes
-  useEffect(() => {
-    setSelectedUserIds(new Set());
-  }, [selectionMode]);
 
   const toggleUser = (userId: number) => {
     const newSelected = new Set(selectedUserIds);
@@ -226,249 +216,8 @@ export const ImageExportDialog = ({
     return blobs;
   };
 
-  // Helper to merge stats from multiple users
-  const mergeStats = (statsArray: WrappedStats[]): WrappedStats => {
-    if (statsArray.length === 0) {
-      // Return empty stats
-      return {
-        totalWatchTime: 0,
-        totalMovies: 0,
-        totalShows: 0,
-        totalEpisodes: 0,
-        topMovies: [],
-        topShows: [],
-        topGenres: [],
-        topActors: [],
-        watchByMonth: [],
-        watchByDay: [],
-        watchByHour: [],
-        platforms: [],
-        uniqueTitles: 0,
-        avgDailyWatchTime: 0,
-        longestStreak: 0,
-        weekendPercentage: 0,
-        lateNightSessions: 0,
-        earlyBirdSessions: 0,
-      };
-    }
-
-    if (statsArray.length === 1) {
-      return statsArray[0];
-    }
-
-    // Merge all stats
-    const merged: WrappedStats = {
-      totalWatchTime: 0,
-      totalMovies: 0,
-      totalShows: 0,
-      totalEpisodes: 0,
-      topMovies: [],
-      topShows: [],
-      topGenres: [],
-      topActors: [],
-      watchByMonth: [],
-      watchByDay: [],
-      watchByHour: [],
-      platforms: [],
-      uniqueTitles: 0,
-      avgDailyWatchTime: 0,
-      longestStreak: 0,
-      weekendPercentage: 0,
-      lateNightSessions: 0,
-      earlyBirdSessions: 0,
-      morningWatchTime: 0,
-      afternoonWatchTime: 0,
-      eveningWatchTime: 0,
-      nightWatchTime: 0,
-    };
-
-    // Sum up simple numeric values
-    statsArray.forEach(s => {
-      merged.totalWatchTime += s.totalWatchTime || 0;
-      merged.totalMovies += s.totalMovies || 0;
-      merged.totalShows += s.totalShows || 0;
-      merged.totalEpisodes += s.totalEpisodes || 0;
-      merged.uniqueTitles += s.uniqueTitles || 0;
-      merged.lateNightSessions += s.lateNightSessions || 0;
-      merged.earlyBirdSessions += s.earlyBirdSessions || 0;
-      merged.morningWatchTime = (merged.morningWatchTime || 0) + (s.morningWatchTime || 0);
-      merged.afternoonWatchTime = (merged.afternoonWatchTime || 0) + (s.afternoonWatchTime || 0);
-      merged.eveningWatchTime = (merged.eveningWatchTime || 0) + (s.eveningWatchTime || 0);
-      merged.nightWatchTime = (merged.nightWatchTime || 0) + (s.nightWatchTime || 0);
-    });
-
-    // Average for avgDailyWatchTime
-    merged.avgDailyWatchTime = statsArray.reduce((sum, s) => sum + (s.avgDailyWatchTime || 0), 0) / statsArray.length;
-
-    // Max for longestStreak
-    merged.longestStreak = Math.max(...statsArray.map(s => s.longestStreak || 0));
-
-    // Average for weekendPercentage
-    merged.weekendPercentage = statsArray.reduce((sum, s) => sum + (s.weekendPercentage || 0), 0) / statsArray.length;
-
-    // Merge topMovies by title
-    const movieMap = new Map<string, { title: string; watchCount: number; thumb?: string }>();
-    statsArray.forEach(s => {
-      s.topMovies?.forEach(m => {
-        const existing = movieMap.get(m.title);
-        if (existing) {
-          existing.watchCount += m.watchCount;
-        } else {
-          movieMap.set(m.title, { ...m });
-        }
-      });
-    });
-    merged.topMovies = Array.from(movieMap.values())
-      .sort((a, b) => b.watchCount - a.watchCount)
-      .slice(0, 10);
-
-    // Merge topShows by title
-    const showMap = new Map<string, { title: string; episodeCount: number; thumb?: string }>();
-    statsArray.forEach(s => {
-      s.topShows?.forEach(sh => {
-        const existing = showMap.get(sh.title);
-        if (existing) {
-          existing.episodeCount += sh.episodeCount;
-        } else {
-          showMap.set(sh.title, { ...sh });
-        }
-      });
-    });
-    merged.topShows = Array.from(showMap.values())
-      .sort((a, b) => b.episodeCount - a.episodeCount)
-      .slice(0, 10);
-
-    // Set topMovie and topShow
-    if (merged.topMovies.length > 0) {
-      merged.topMovie = merged.topMovies[0];
-    }
-    if (merged.topShows.length > 0) {
-      merged.topShow = merged.topShows[0];
-    }
-
-    // Merge topGenres
-    const genreMap = new Map<string, { genre: string; count: number; watchTime: number }>();
-    statsArray.forEach(s => {
-      s.topGenres?.forEach(g => {
-        const existing = genreMap.get(g.genre);
-        if (existing) {
-          existing.count += g.count;
-          existing.watchTime += g.watchTime;
-        } else {
-          genreMap.set(g.genre, { ...g });
-        }
-      });
-    });
-    merged.topGenres = Array.from(genreMap.values())
-      .sort((a, b) => b.watchTime - a.watchTime)
-      .slice(0, 10);
-
-    // Merge topActors
-    const actorMap = new Map<string, { name: string; titleCount: number }>();
-    statsArray.forEach(s => {
-      s.topActors?.forEach(a => {
-        const existing = actorMap.get(a.name);
-        if (existing) {
-          existing.titleCount += a.titleCount;
-        } else {
-          actorMap.set(a.name, { ...a });
-        }
-      });
-    });
-    merged.topActors = Array.from(actorMap.values())
-      .sort((a, b) => b.titleCount - a.titleCount)
-      .slice(0, 10);
-
-    // Merge watchByMonth
-    const monthMap = new Map<string, { month: string; hours: number }>();
-    statsArray.forEach(s => {
-      s.watchByMonth?.forEach(m => {
-        const existing = monthMap.get(m.month);
-        if (existing) {
-          existing.hours += m.hours;
-        } else {
-          monthMap.set(m.month, { ...m });
-        }
-      });
-    });
-    // Sort by month order
-    const monthOrder = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    merged.watchByMonth = monthOrder
-      .map(m => monthMap.get(m) || { month: m, hours: 0 });
-
-    // Merge watchByDay
-    const dayMap = new Map<string, { day: string; hours: number }>();
-    statsArray.forEach(s => {
-      s.watchByDay?.forEach(d => {
-        const existing = dayMap.get(d.day);
-        if (existing) {
-          existing.hours += d.hours;
-        } else {
-          dayMap.set(d.day, { ...d });
-        }
-      });
-    });
-    const dayOrder = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    merged.watchByDay = dayOrder
-      .map(d => dayMap.get(d) || { day: d, hours: 0 });
-
-    // Merge watchByHour
-    const hourMap = new Map<number, { hour: number; minutes: number }>();
-    statsArray.forEach(s => {
-      s.watchByHour?.forEach(h => {
-        const existing = hourMap.get(h.hour);
-        if (existing) {
-          existing.minutes += h.minutes;
-        } else {
-          hourMap.set(h.hour, { ...h });
-        }
-      });
-    });
-    merged.watchByHour = Array.from({ length: 24 }, (_, i) => 
-      hourMap.get(i) || { hour: i, minutes: 0 }
-    );
-
-    // Merge platforms
-    const platformMap = new Map<string, { name: string; count: number }>();
-    statsArray.forEach(s => {
-      s.platforms?.forEach(p => {
-        const existing = platformMap.get(p.name);
-        if (existing) {
-          existing.count += p.count;
-        } else {
-          platformMap.set(p.name, { ...p });
-        }
-      });
-    });
-    merged.platforms = Array.from(platformMap.values())
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-
-    // Find mostBingedDay (max across all users)
-    const allBingedDays = statsArray
-      .filter(s => s.mostBingedDay)
-      .map(s => s.mostBingedDay!);
-    if (allBingedDays.length > 0) {
-      merged.mostBingedDay = allBingedDays.reduce((max, d) => 
-        d.duration > max.duration ? d : max
-      );
-    }
-
-    // Find mostActiveDay (max hours)
-    const allActiveDays = statsArray
-      .filter(s => s.mostActiveDay)
-      .map(s => s.mostActiveDay!);
-    if (allActiveDays.length > 0) {
-      merged.mostActiveDay = allActiveDays.reduce((max, d) => 
-        d.hours > max.hours ? d : max
-      );
-    }
-
-    return merged;
-  };
-
   const handleExport = async () => {
-    if (selectionMode === 'individual' && selectedUserIds.size === 0) {
+    if (selectedUserIds.size === 0) {
       toast.error("Please select at least one user");
       return;
     }
@@ -482,89 +231,40 @@ export const ImageExportDialog = ({
     const endStr = format(endDate, "yyyy-MM-dd");
     const displayYear = getDisplayYear(yearSelection);
 
-    // Get admin settings
+    // Get the normalize anomalies setting
     const adminSettings = getServerAdminSettings();
     const normalizeAnomalies = adminSettings.normalizeTautulliAnomalies || false;
-    const enableGeolocation = adminSettings.enableGeolocation || false;
+
+    const selectedUsers = users.filter(u => selectedUserIds.has(u.user_id));
+    let completed = 0;
 
     try {
-      if (selectionMode === 'combined') {
-        // Export all users combined
-        setCurrentUser("All Users Combined");
-        setCurrentPhase("Fetching all users' watch history...");
+      for (const user of selectedUsers) {
+        const userName = user.friendly_name || user.username;
+        const safeFileName = userName.replace(/[^a-zA-Z0-9]/g, "_");
+        setCurrentUser(userName);
+        setCurrentPhase("Fetching watch history...");
 
-        const allStats: WrappedStats[] = [];
-        const allGeoLocations: StreamingLocation[] = [];
-
-        for (let i = 0; i < users.length; i++) {
-          const user = users[i];
-          setCurrentPhase(`Fetching ${user.friendly_name || user.username} (${i + 1}/${users.length})...`);
-          
-          const history = await getHistory(config, user.user_id, startStr, endStr, 5000, normalizeAnomalies);
-          let stats = calculateWrappedStats(history);
-          try {
-            const metaStats = await fetchMetadataStats(config, history);
-            stats = { ...stats, ...metaStats };
-          } catch (e) {
-            console.warn("Failed to fetch metadata:", e);
-          }
-          allStats.push(stats);
-
-          if (enableGeolocation) {
-            try {
-              const ipData = extractUniqueIPs(history);
-              if (ipData.size > 0) {
-                const geoLocs = await geolocateIPs(ipData);
-                allGeoLocations.push(...geoLocs);
-              }
-            } catch (e) {
-              console.warn("Failed to fetch geolocation:", e);
-            }
-          }
-
-          setProgress(((i + 1) / users.length) * 50); // First 50% for data fetching
+        // Pass normalizeAnomalies to getHistory
+        const history = await getHistory(config, user.user_id, startStr, endStr, 5000, normalizeAnomalies);
+        let stats = calculateWrappedStats(history);
+        
+        setCurrentPhase("Loading metadata...");
+        try {
+          const metaStats = await fetchMetadataStats(config, history);
+          stats = { ...stats, ...metaStats };
+        } catch (e) {
+          console.warn("Failed to fetch metadata:", e);
         }
 
-        setCurrentPhase("Merging statistics...");
-        const combinedStats = mergeStats(allStats);
-        
-        // Deduplicate geo locations by city+country
-        const geoMap = new Map<string, StreamingLocation>();
-        allGeoLocations.forEach(loc => {
-          const key = `${loc.city}-${loc.country}`;
-          const existing = geoMap.get(key);
-          if (existing) {
-            existing.sessionCount += loc.sessionCount;
-            if (loc.sessionDates) {
-              existing.sessionDates = [...(existing.sessionDates || []), ...loc.sessionDates];
-            }
-          } else {
-            geoMap.set(key, { ...loc });
-          }
-        });
-        const combinedGeoLocations = Array.from(geoMap.values());
-
-        // Create a pseudo-user for "All Users Combined"
-        const combinedUser: TautulliUser = {
-          user_id: -999,
-          username: "all_users",
-          friendly_name: "All Users",
-          email: "",
-          is_active: 1,
-          is_admin: 0,
-          is_home_user: 0,
-          is_allow_sync: 0,
-          is_restricted: 0,
-          thumb: "",
-        };
-
-        // Capture full image for combined
+        // Capture full image
         if (exportMode === 'single' || exportMode === 'both') {
-          setCurrentPhase("Rendering combined full report...");
+          setCurrentPhase("Rendering full report...");
           isRenderReadyRef.current = false;
           setRenderMode('full');
-          setRenderData({ user: combinedUser, stats: combinedStats, geoLocations: combinedGeoLocations });
+          setRenderData({ user, stats });
           
+          // Wait for React to update state and render
           await new Promise(resolve => setTimeout(resolve, 200));
           
           try {
@@ -572,30 +272,31 @@ export const ImageExportDialog = ({
             await new Promise(resolve => setTimeout(resolve, 300));
 
             if (renderContainerRef.current) {
-              setCurrentPhase("Capturing combined full image...");
+              setCurrentPhase("Capturing full image...");
               const reportElement = renderContainerRef.current.querySelector('.export-report') as HTMLElement;
               if (reportElement) {
                 const imageBlob = await captureFullImage(reportElement);
-                zip.file(`All_Users_Combined_Plex_Wrapped_${displayYear.replace(/\s/g, '_')}.png`, imageBlob);
+                zip.file(`${safeFileName}_Plex_Wrapped_${displayYear.replace(/\s/g, '_')}.png`, imageBlob);
+              } else {
+                throw new Error("Report element not found");
               }
             }
           } catch (e) {
-            console.error("Combined full image capture failed:", e);
-            toast.error("Failed to capture combined full image");
+            console.error("Full image capture failed:", e);
+            toast.error(`Failed to capture full image for ${userName}`);
           }
         }
 
-        setProgress(75);
-
-        // Capture slides for combined
+        // Capture slides
         if (exportMode === 'slides' || exportMode === 'both') {
-          setCurrentPhase("Rendering combined story slides...");
+          setCurrentPhase("Rendering story slides...");
           isRenderReadyRef.current = false;
           setRenderMode('slides');
           setRenderData(null);
           await new Promise(resolve => setTimeout(resolve, 100));
-          setRenderData({ user: combinedUser, stats: combinedStats, geoLocations: combinedGeoLocations });
+          setRenderData({ user, stats });
           
+          // Wait for React to update state and render
           await new Promise(resolve => setTimeout(resolve, 200));
           
           try {
@@ -603,125 +304,25 @@ export const ImageExportDialog = ({
             await new Promise(resolve => setTimeout(resolve, 300));
 
             if (slidesContainerRef.current) {
-              setCurrentPhase("Capturing combined story slides...");
+              setCurrentPhase("Capturing story slides...");
               const slides = await captureSlides(slidesContainerRef.current);
               if (slides.length > 0) {
-                const slidesFolder = zip.folder("All_Users_Combined_Slides");
+                const slidesFolder = zip.folder(`${safeFileName}_Slides`);
                 slides.forEach((blob, i) => {
                   slidesFolder?.file(`slide_${String(i + 1).padStart(2, '0')}.png`, blob);
                 });
+              } else {
+                throw new Error("No slides captured");
               }
             }
           } catch (e) {
-            console.error("Combined slides capture failed:", e);
-            toast.error("Failed to capture combined slides");
+            console.error("Slides capture failed:", e);
+            toast.error(`Failed to capture slides for ${userName}`);
           }
         }
 
-        setProgress(100);
-
-      } else {
-        // Export individual users
-        const selectedUsers = users.filter(u => selectedUserIds.has(u.user_id));
-        let completed = 0;
-
-        for (const user of selectedUsers) {
-          const userName = user.friendly_name || user.username;
-          const safeFileName = userName.replace(/[^a-zA-Z0-9]/g, "_");
-          setCurrentUser(userName);
-          setCurrentPhase("Fetching watch history...");
-
-          const history = await getHistory(config, user.user_id, startStr, endStr, 5000, normalizeAnomalies);
-          let stats = calculateWrappedStats(history);
-          
-          setCurrentPhase("Loading metadata...");
-          try {
-            const metaStats = await fetchMetadataStats(config, history);
-            stats = { ...stats, ...metaStats };
-          } catch (e) {
-            console.warn("Failed to fetch metadata:", e);
-          }
-
-          // Fetch geolocation data if enabled
-          let geoLocations: StreamingLocation[] = [];
-          if (enableGeolocation) {
-            setCurrentPhase("Locating streaming sessions...");
-            try {
-              const ipData = extractUniqueIPs(history);
-              if (ipData.size > 0) {
-                geoLocations = await geolocateIPs(ipData);
-                console.log(`[ImageExport] Found ${geoLocations.length} locations for ${userName}`);
-              }
-            } catch (e) {
-              console.warn("Failed to fetch geolocation:", e);
-            }
-          }
-
-          // Capture full image
-          if (exportMode === 'single' || exportMode === 'both') {
-            setCurrentPhase("Rendering full report...");
-            isRenderReadyRef.current = false;
-            setRenderMode('full');
-            setRenderData({ user, stats, geoLocations });
-            
-            await new Promise(resolve => setTimeout(resolve, 200));
-            
-            try {
-              await waitForRender('full');
-              await new Promise(resolve => setTimeout(resolve, 300));
-
-              if (renderContainerRef.current) {
-                setCurrentPhase("Capturing full image...");
-                const reportElement = renderContainerRef.current.querySelector('.export-report') as HTMLElement;
-                if (reportElement) {
-                  const imageBlob = await captureFullImage(reportElement);
-                  zip.file(`${safeFileName}_Plex_Wrapped_${displayYear.replace(/\s/g, '_')}.png`, imageBlob);
-                } else {
-                  throw new Error("Report element not found");
-                }
-              }
-            } catch (e) {
-              console.error("Full image capture failed:", e);
-              toast.error(`Failed to capture full image for ${userName}`);
-            }
-          }
-
-          // Capture slides
-          if (exportMode === 'slides' || exportMode === 'both') {
-            setCurrentPhase("Rendering story slides...");
-            isRenderReadyRef.current = false;
-            setRenderMode('slides');
-            setRenderData(null);
-            await new Promise(resolve => setTimeout(resolve, 100));
-            setRenderData({ user, stats, geoLocations });
-            
-            await new Promise(resolve => setTimeout(resolve, 200));
-            
-            try {
-              await waitForRender('slides');
-              await new Promise(resolve => setTimeout(resolve, 300));
-
-              if (slidesContainerRef.current) {
-                setCurrentPhase("Capturing story slides...");
-                const slides = await captureSlides(slidesContainerRef.current);
-                if (slides.length > 0) {
-                  const slidesFolder = zip.folder(`${safeFileName}_Slides`);
-                  slides.forEach((blob, i) => {
-                    slidesFolder?.file(`slide_${String(i + 1).padStart(2, '0')}.png`, blob);
-                  });
-                } else {
-                  throw new Error("No slides captured");
-                }
-              }
-            } catch (e) {
-              console.error("Slides capture failed:", e);
-              toast.error(`Failed to capture slides for ${userName}`);
-            }
-          }
-
-          completed++;
-          setProgress((completed / selectedUsers.length) * 100);
-        }
+        completed++;
+        setProgress((completed / selectedUsers.length) * 100);
       }
 
       // Clear render data
@@ -735,9 +336,7 @@ export const ImageExportDialog = ({
         return;
       }
 
-      const totalItems = selectionMode === 'combined' ? 1 : selectedUserIds.size;
-
-      if (totalItems === 1 && exportMode === 'single') {
+      if (selectedUsers.length === 1 && exportMode === 'single') {
         const files = Object.keys(zip.files);
         if (files.length > 0) {
           const blob = await zip.files[files[0]].async('blob');
@@ -748,7 +347,7 @@ export const ImageExportDialog = ({
         saveAs(zipBlob, `Plex_Wrapped_${displayYear.replace(/\s/g, '_')}_Export.zip`);
       }
 
-      toast.success(`Successfully exported ${totalItems} report(s)`);
+      toast.success(`Successfully exported ${selectedUsers.length} report(s)`);
       onClose();
     } catch (error) {
       console.error("Export error:", error);
@@ -783,9 +382,6 @@ export const ImageExportDialog = ({
     pointerEvents: 'none',
     zIndex: -9999,
   };
-
-  const canExport = selectionMode === 'combined' || selectedUserIds.size > 0;
-  const exportCount = selectionMode === 'combined' ? 1 : selectedUserIds.size;
 
   return (
     <>
@@ -863,90 +459,49 @@ export const ImageExportDialog = ({
                 </div>
               </div>
 
-              {/* Selection Mode Toggle */}
-              <div className="py-3 border-b">
-                <Label className="text-sm font-medium mb-3 block">Export Type</Label>
-                <RadioGroup value={selectionMode} onValueChange={(v) => setSelectionMode(v as SelectionMode)} className="grid grid-cols-2 gap-2">
-                  <div>
-                    <RadioGroupItem value="individual" id="individual" className="peer sr-only" />
-                    <Label
-                      htmlFor="individual"
-                      className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary cursor-pointer text-center"
-                    >
-                      <ImageIcon className="w-5 h-5 mb-1" />
-                      <span className="text-xs">Individual Users</span>
-                    </Label>
-                  </div>
-                  <div>
-                    <RadioGroupItem value="combined" id="combined" className="peer sr-only" />
-                    <Label
-                      htmlFor="combined"
-                      className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary cursor-pointer text-center"
-                    >
-                      <Users className="w-5 h-5 mb-1" />
-                      <span className="text-xs">All Users Combined</span>
-                    </Label>
-                  </div>
-                </RadioGroup>
+              <div className="flex items-center justify-between py-2 border-b">
+                <Label className="text-sm font-medium">
+                  Select Users ({selectedUserIds.size} of {users.length})
+                </Label>
+                <Button variant="ghost" size="sm" onClick={toggleAll}>
+                  {selectedUserIds.size === users.length ? "Deselect All" : "Select All"}
+                </Button>
               </div>
 
-              {selectionMode === 'individual' ? (
-                <>
-                  <div className="flex items-center justify-between py-2 border-b">
-                    <Label className="text-sm font-medium">
-                      Select Users ({selectedUserIds.size} of {users.length})
-                    </Label>
-                    <Button variant="ghost" size="sm" onClick={toggleAll}>
-                      {selectedUserIds.size === users.length ? "Deselect All" : "Select All"}
-                    </Button>
-                  </div>
-
-                  <ScrollArea className="h-[200px] pr-4">
-                    <div className="space-y-2 py-2">
-                      {users.map((user) => (
-                        <div
-                          key={user.user_id}
-                          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
-                          onClick={() => toggleUser(user.user_id)}
-                        >
-                          <Checkbox
-                            id={`user-${user.user_id}`}
-                            checked={selectedUserIds.has(user.user_id)}
-                            onCheckedChange={() => toggleUser(user.user_id)}
-                          />
-                          <div className="flex-1">
-                            <Label htmlFor={`user-${user.user_id}`} className="text-sm font-medium cursor-pointer">
-                              {user.friendly_name || user.username}
-                            </Label>
-                            {user.friendly_name && user.friendly_name !== user.username && (
-                              <p className="text-xs text-muted-foreground">@{user.username}</p>
-                            )}
-                          </div>
-                          {selectedUserIds.has(user.user_id) && (
-                            <Check className="w-4 h-4 text-primary" />
-                          )}
-                        </div>
-                      ))}
+              <ScrollArea className="h-[200px] pr-4">
+                <div className="space-y-2 py-2">
+                  {users.map((user) => (
+                    <div
+                      key={user.user_id}
+                      className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                      onClick={() => toggleUser(user.user_id)}
+                    >
+                      <Checkbox
+                        id={`user-${user.user_id}`}
+                        checked={selectedUserIds.has(user.user_id)}
+                        onCheckedChange={() => toggleUser(user.user_id)}
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor={`user-${user.user_id}`} className="text-sm font-medium cursor-pointer">
+                          {user.friendly_name || user.username}
+                        </Label>
+                        {user.friendly_name && user.friendly_name !== user.username && (
+                          <p className="text-xs text-muted-foreground">@{user.username}</p>
+                        )}
+                      </div>
+                      {selectedUserIds.has(user.user_id) && (
+                        <Check className="w-4 h-4 text-primary" />
+                      )}
                     </div>
-                  </ScrollArea>
-                </>
-              ) : (
-                <div className="py-6 text-center">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center mx-auto mb-4">
-                    <Users className="w-8 h-8 text-primary" />
-                  </div>
-                  <p className="text-sm font-medium text-foreground">All Users Combined</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Aggregate statistics from all {users.length} users into a single report
-                  </p>
+                  ))}
                 </div>
-              )}
+              </ScrollArea>
 
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={onClose}>Cancel</Button>
-                <Button onClick={handleExport} disabled={!canExport}>
+                <Button onClick={handleExport} disabled={selectedUserIds.size === 0}>
                   <Image className="w-4 h-4 mr-2" />
-                  Export {exportCount} Report{exportCount !== 1 ? 's' : ''}
+                  Export {selectedUserIds.size} Report{selectedUserIds.size !== 1 ? 's' : ''}
                 </Button>
               </DialogFooter>
             </>
@@ -963,7 +518,6 @@ export const ImageExportDialog = ({
               stats={renderData.stats}
               yearSelection={yearSelection}
               config={config}
-              geoLocations={renderData.geoLocations}
               onReady={handleRenderReady}
             />
           </div>
@@ -978,7 +532,6 @@ export const ImageExportDialog = ({
               stats={renderData.stats}
               yearSelection={yearSelection}
               config={config}
-              geoLocations={renderData.geoLocations}
               onReady={handleRenderReady}
             />
           </div>

@@ -578,15 +578,15 @@ export const ExportableWrappedReport = ({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
                 <div style={{ textAlign: 'center', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
                   <p style={{ fontSize: '28px', fontWeight: 700, color: colors.cyan, margin: 0 }}>{countries.length}</p>
-                  <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>{countries.length === 1 ? 'Country' : 'Countries'}</p>
+                  <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{countries.length === 1 ? 'Country' : 'Countries'}</p>
                 </div>
                 <div style={{ textAlign: 'center', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
                   <p style={{ fontSize: '28px', fontWeight: 700, color: colors.pink, margin: 0 }}>{cities.length}</p>
-                  <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>{cities.length === 1 ? 'City' : 'Cities'}</p>
+                  <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{cities.length === 1 ? 'City' : 'Cities'}</p>
                 </div>
                 <div style={{ textAlign: 'center', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
                   <p style={{ fontSize: '28px', fontWeight: 700, color: colors.purple, margin: 0 }}>{totalSessions}</p>
-                  <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>Sessions</p>
+                  <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>Sessions</p>
                 </div>
               </div>
         
@@ -618,13 +618,17 @@ export const ExportableWrappedReport = ({
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          color: colors.text,
-                          lineHeight: 1,
                           flexShrink: 0,
                         }}>
-                          {i + 1}
+                          <span style={{
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: colors.text,
+                            lineHeight: 1,
+                            marginTop: '-1px', // Fine-tune vertical position
+                          }}>
+                            {i + 1}
+                          </span>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontSize: '14px', fontWeight: 600, color: colors.text, margin: 0 }}>
@@ -635,9 +639,21 @@ export const ExportableWrappedReport = ({
                             {getFlagEmoji(loc.countryCode)}
                           </p>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                          <MapPin size={14} color={colors.textMuted} />
-                          <span style={{ fontSize: '13px', fontWeight: 500, color: colors.text }}>{loc.sessionCount} streams</span>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '6px', 
+                          flexShrink: 0,
+                        }}>
+                          <MapPin size={14} color={colors.textMuted} style={{ marginTop: '-1px' }} />
+                          <span style={{ 
+                            fontSize: '13px', 
+                            fontWeight: 500, 
+                            color: colors.text,
+                            lineHeight: 1,
+                          }}>
+                            {loc.sessionCount} streams
+                          </span>
                         </div>
                       </div>
                     ))}

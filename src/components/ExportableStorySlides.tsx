@@ -44,38 +44,6 @@ const getFlagEmoji = (countryCode: string): string => {
   return String.fromCodePoint(...codePoints);
 };
 
-// Simple world map SVG as a background - simplified continents outline
-const WorldMapSVG = () => (
-  <svg
-    viewBox="0 0 360 180"
-    style={{
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      width: '100%',
-      height: '100%',
-      opacity: 0.15,
-    }}
-    preserveAspectRatio="xMidYMid slice"
-  >
-    {/* Simplified world continents - rough outlines */}
-    <g fill="currentColor" stroke="none">
-      {/* North America */}
-      <path d="M30,25 L60,20 L80,25 L95,35 L100,50 L95,65 L85,75 L70,80 L55,75 L40,65 L30,50 L25,35 Z" />
-      {/* South America */}
-      <path d="M70,85 L85,90 L90,105 L85,125 L75,140 L60,145 L55,130 L60,110 L65,95 Z" />
-      {/* Europe */}
-      <path d="M160,25 L180,20 L195,25 L200,35 L195,45 L180,50 L165,45 L160,35 Z" />
-      {/* Africa */}
-      <path d="M160,55 L185,50 L200,60 L205,80 L195,105 L175,115 L155,105 L150,80 L155,65 Z" />
-      {/* Asia */}
-      <path d="M200,20 L260,15 L290,25 L300,40 L295,55 L280,65 L250,70 L220,65 L200,55 L195,40 Z" />
-      {/* Australia */}
-      <path d="M270,100 L295,95 L310,105 L305,120 L285,125 L270,115 Z" />
-    </g>
-  </svg>
-);
-
 export const ExportableStorySlides = ({
   user,
   stats,
@@ -678,109 +646,54 @@ export const ExportableStorySlides = ({
             fontSize: '15px', 
             fontWeight: 600, 
             textAlign: 'center', 
-            marginBottom: '20px',
+            marginBottom: '16px',
             color: colors.cyan,
             lineHeight: 1.4,
           }}>
             {insight}
           </p>
   
-          {/* Mini Map Visualization with SVG background */}
+          {/* Globe Image */}
           <div style={{ 
-            position: 'relative',
-            height: '140px',
-            marginBottom: '20px',
-            backgroundColor: 'rgba(0, 212, 170, 0.05)',
-            borderRadius: '16px',
-            overflow: 'hidden',
-            border: '1px solid rgba(0, 212, 170, 0.2)',
-            color: colors.cyan,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: '16px',
           }}>
-            {/* World map SVG background */}
-            <WorldMapSVG />
-            
-            {/* World map dots representation */}
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                {/* Plot location dots based on lat/lon */}
-                {aggregatedLocations.slice(0, 10).map((loc, i) => {
-                  // Convert lat/lon to percentage position
-                  const x = ((loc.lon + 180) / 360) * 100;
-                  const y = ((90 - loc.lat) / 180) * 100;
-                  const maxSessions = Math.max(...aggregatedLocations.map(l => l.sessionCount), 1);
-                  const size = Math.min(10 + (loc.sessionCount / maxSessions) * 14, 24);
-                  
-                  return (
-                    <div
-                      key={`${loc.city}-${loc.country}-${i}`}
-                      style={{
-                        position: 'absolute',
-                        left: `${Math.max(8, Math.min(92, x))}%`,
-                        top: `${Math.max(12, Math.min(88, y))}%`,
-                        width: `${size}px`,
-                        height: `${size}px`,
-                        borderRadius: '50%',
-                        backgroundColor: colors.cyan,
-                        border: `2px solid ${colors.purple}`,
-                        opacity: 0.85,
-                        transform: 'translate(-50%, -50%)',
-                        boxShadow: `0 0 ${size}px ${colors.cyan}50`,
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-            {/* Globe icon overlay */}
-            <div style={{
-              position: 'absolute',
-              bottom: '10px',
-              right: '10px',
-              opacity: 0.25,
-            }}>
-              <Globe size={28} color={colors.cyan} />
-            </div>
-            {/* Label */}
-            <div style={{
-              position: 'absolute',
-              top: '10px',
-              left: '12px',
-              fontSize: '10px',
-              color: colors.textMuted,
-              opacity: 0.7,
-            }}>
-              🌍 Your streaming locations
-            </div>
+            <img 
+              src="/globe.png" 
+              alt="Streaming Globe"
+              style={{
+                width: '140px',
+                height: '140px',
+                objectFit: 'contain',
+              }}
+              crossOrigin="anonymous"
+            />
           </div>
   
           {/* Stats Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '20px' }}>
-            <div style={{ textAlign: 'center', padding: '14px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
-              <p style={{ fontSize: '26px', fontWeight: 700, color: colors.cyan, margin: 0 }}>{countries.length}</p>
-              <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0 }}>{countries.length === 1 ? 'Country' : 'Countries'}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
+            <div style={{ textAlign: 'center', padding: '12px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
+              <p style={{ fontSize: '24px', fontWeight: 700, color: colors.cyan, margin: 0, lineHeight: 1.2 }}>{countries.length}</p>
+              <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{countries.length === 1 ? 'Country' : 'Countries'}</p>
             </div>
-            <div style={{ textAlign: 'center', padding: '14px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
-              <p style={{ fontSize: '26px', fontWeight: 700, color: colors.pink, margin: 0 }}>{cities.length}</p>
-              <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0 }}>{cities.length === 1 ? 'City' : 'Cities'}</p>
+            <div style={{ textAlign: 'center', padding: '12px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
+              <p style={{ fontSize: '24px', fontWeight: 700, color: colors.pink, margin: 0, lineHeight: 1.2 }}>{cities.length}</p>
+              <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{cities.length === 1 ? 'City' : 'Cities'}</p>
             </div>
-            <div style={{ textAlign: 'center', padding: '14px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
-              <p style={{ fontSize: '26px', fontWeight: 700, color: colors.purple, margin: 0 }}>{totalSessions}</p>
-              <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0 }}>Sessions</p>
+            <div style={{ textAlign: 'center', padding: '12px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
+              <p style={{ fontSize: '24px', fontWeight: 700, color: colors.purple, margin: 0, lineHeight: 1.2 }}>{totalSessions}</p>
+              <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>Sessions</p>
             </div>
           </div>
   
           {/* Top Locations */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h4 style={{ fontSize: '12px', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px', textAlign: 'center' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <h4 style={{ fontSize: '12px', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', textAlign: 'center' }}>
               Top Streaming Spots
             </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {topLocations.map((loc, i) => (
                 <div 
                   key={`${loc.city}-${loc.country}`} 
@@ -788,21 +701,22 @@ export const ExportableStorySlides = ({
                     display: 'flex', 
                     alignItems: 'center', 
                     gap: '10px', 
-                    padding: '10px 14px', 
+                    padding: '8px 12px', 
                     backgroundColor: i === 0 ? `${colors.cyan}15` : colors.cardAlt, 
-                    borderRadius: '12px',
+                    borderRadius: '10px',
                     border: i === 0 ? `1px solid ${colors.cyan}40` : 'none',
+                    minHeight: '44px',
                   }}
                 >
                   <div style={{ 
-                    width: '26px', 
-                    height: '26px', 
+                    width: '24px', 
+                    height: '24px', 
                     borderRadius: '50%', 
                     background: `linear-gradient(135deg, ${colors.cyan}40, ${colors.purple}40)`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '12px',
+                    fontSize: '11px',
                     fontWeight: 700,
                     color: colors.text,
                     flexShrink: 0,
@@ -810,11 +724,11 @@ export const ExportableStorySlides = ({
                   }}>
                     {i + 1}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                    <p style={{ fontSize: '13px', fontWeight: 600, color: colors.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: colors.text, margin: 0, lineHeight: 1.3 }}>
                       {loc.city !== "Unknown" ? loc.city : loc.region || loc.country}
                     </p>
-                    <p style={{ fontSize: '10px', color: colors.textMuted, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <p style={{ fontSize: '10px', color: colors.textMuted, margin: 0, lineHeight: 1.3 }}>
                       {loc.city !== "Unknown" && loc.country !== loc.city ? `${loc.country} ` : ''}
                       {getFlagEmoji(loc.countryCode)}
                     </p>

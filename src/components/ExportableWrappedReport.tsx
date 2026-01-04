@@ -36,38 +36,6 @@ const getFlagEmoji = (countryCode: string): string => {
   return String.fromCodePoint(...codePoints);
 };
 
-// Simple world map SVG as a background
-const WorldMapSVG = () => (
-  <svg
-    viewBox="0 0 360 180"
-    style={{
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      width: '100%',
-      height: '100%',
-      opacity: 0.15,
-    }}
-    preserveAspectRatio="xMidYMid slice"
-  >
-    {/* Simplified world continents - rough outlines */}
-    <g fill="currentColor" stroke="none">
-      {/* North America */}
-      <path d="M30,25 L60,20 L80,25 L95,35 L100,50 L95,65 L85,75 L70,80 L55,75 L40,65 L30,50 L25,35 Z" />
-      {/* South America */}
-      <path d="M70,85 L85,90 L90,105 L85,125 L75,140 L60,145 L55,130 L60,110 L65,95 Z" />
-      {/* Europe */}
-      <path d="M160,25 L180,20 L195,25 L200,35 L195,45 L180,50 L165,45 L160,35 Z" />
-      {/* Africa */}
-      <path d="M160,55 L185,50 L200,60 L205,80 L195,105 L175,115 L155,105 L150,80 L155,65 Z" />
-      {/* Asia */}
-      <path d="M200,20 L260,15 L290,25 L300,40 L295,55 L280,65 L250,70 L220,65 L200,55 L195,40 Z" />
-      {/* Australia */}
-      <path d="M270,100 L295,95 L310,105 L305,120 L285,125 L270,115 Z" />
-    </g>
-  </svg>
-);
-
 interface ExportableWrappedReportProps {
   user: TautulliUser;
   stats: WrappedStats;
@@ -587,68 +555,23 @@ export const ExportableWrappedReport = ({
                 {insight}
               </p>
         
-              {/* Mini Map Visualization with SVG background */}
+              {/* Globe Image */}
               <div style={{ 
-                position: 'relative',
-                height: '120px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
                 marginBottom: '24px',
-                backgroundColor: 'rgba(0, 212, 170, 0.05)',
-                borderRadius: '12px',
-                overflow: 'hidden',
-                border: '1px solid rgba(0, 212, 170, 0.2)',
-                color: colors.cyan,
               }}>
-                {/* World map SVG background */}
-                <WorldMapSVG />
-                
-                {/* World map dots representation */}
-                <div style={{
-                  position: 'absolute',
-                  inset: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                    {/* Plot location dots based on lat/lon */}
-                    {aggregatedLocations.slice(0, 10).map((loc, i) => {
-                      // Convert lat/lon to percentage position
-                      // Longitude: -180 to 180 -> 0% to 100%
-                      // Latitude: 90 to -90 -> 0% to 100%
-                      const x = ((loc.lon + 180) / 360) * 100;
-                      const y = ((90 - loc.lat) / 180) * 100;
-                      const size = Math.min(8 + (loc.sessionCount / Math.max(...aggregatedLocations.map(l => l.sessionCount))) * 12, 20);
-                      
-                      return (
-                        <div
-                          key={`${loc.city}-${loc.country}-${i}`}
-                          style={{
-                            position: 'absolute',
-                            left: `${Math.max(5, Math.min(95, x))}%`,
-                            top: `${Math.max(10, Math.min(90, y))}%`,
-                            width: `${size}px`,
-                            height: `${size}px`,
-                            borderRadius: '50%',
-                            backgroundColor: colors.cyan,
-                            border: `2px solid ${colors.purple}`,
-                            opacity: 0.8,
-                            transform: 'translate(-50%, -50%)',
-                            boxShadow: `0 0 ${size}px ${colors.cyan}40`,
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-                {/* Globe icon overlay */}
-                <div style={{
-                  position: 'absolute',
-                  bottom: '8px',
-                  right: '8px',
-                  opacity: 0.3,
-                }}>
-                  <Globe size={24} color={colors.cyan} />
-                </div>
+                <img 
+                  src="/globe.png" 
+                  alt="Streaming Globe"
+                  style={{
+                    width: '180px',
+                    height: '180px',
+                    objectFit: 'contain',
+                  }}
+                  crossOrigin="anonymous"
+                />
               </div>
         
               {/* Stats Grid */}

@@ -37,9 +37,7 @@ interface ImageExportDialogProps {
 }
 
 type ExportMode = 'single' | 'slides' | 'both';
-
-// Special ID for "All Users Combined"
-const ALL_USERS_COMBINED_ID = -999;
+type SelectionMode = 'individual' | 'combined';
 
 export const ImageExportDialog = ({
   isOpen,
@@ -47,6 +45,7 @@ export const ImageExportDialog = ({
   users,
   config,
 }: ImageExportDialogProps) => {
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>('individual');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<number>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -72,6 +71,11 @@ export const ImageExportDialog = ({
     }
   }, [isOpen, config]);
 
+  // Reset selection when switching modes
+  useEffect(() => {
+    setSelectedUserIds(new Set());
+  }, [selectionMode]);
+
   const toggleUser = (userId: number) => {
     const newSelected = new Set(selectedUserIds);
     if (newSelected.has(userId)) {
@@ -83,7 +87,6 @@ export const ImageExportDialog = ({
   };
 
   const toggleAll = () => {
-    // Don't include ALL_USERS_COMBINED_ID in "select all"
     if (selectedUserIds.size === users.length) {
       setSelectedUserIds(new Set());
     } else {
@@ -465,7 +468,7 @@ export const ImageExportDialog = ({
   };
 
   const handleExport = async () => {
-    if (selectedUserIds.size === 0) {
+    if (selectionMode === 'individual' && selectedUserIds.size === 0) {
       toast.error("Please select at least one user");
       return;
     }
@@ -484,156 +487,42 @@ export const ImageExportDialog = ({
     const normalizeAnomalies = adminSettings.normalizeTautulliAnomalies || false;
     const enableGeolocation = adminSettings.enableGeolocation || false;
 
-    // Check if "All Users Combined" is selected
-    const includeAllCombined = selectedUserIds.has(ALL_USERS_COMBINED_ID);
-    const individualUserIds = Array.from(selectedUserIds).filter(id => id !== ALL_USERS_COMBINED_ID);
-    const selectedUsers = users.filter(u => individualUserIds.includes(u.user_id));
-    
-    // Total items to process
-    const totalItems = selectedUsers.length + (includeAllCombined ? 1 : 0);
-    let completed = 0;
-
     try {
-      // Store stats for combined export
-      const allStats: WrappedStats[] = [];
-      const allGeoLocations: StreamingLocation[] = [];
-
-      // Process individual users
-      for (const user of selectedUsers) {
-        const userName = user.friendly_name || user.username;
-        const safeFileName = userName.replace(/[^a-zA-Z0-9]/g, "_");
-        setCurrentUser(userName);
-        setCurrentPhase("Fetching watch history...");
-
-        // Pass normalizeAnomalies to getHistory
-        const history = await getHistory(config, user.user_id, startStr, endStr, 5000, normalizeAnomalies);
-        let stats = calculateWrappedStats(history);
-        
-        setCurrentPhase("Loading metadata...");
-        try {
-          const metaStats = await fetchMetadataStats(config, history);
-          stats = { ...stats, ...metaStats };
-        } catch (e) {
-          console.warn("Failed to fetch metadata:", e);
-        }
-
-        // Store for combined
-        allStats.push(stats);
-
-        // Fetch geolocation data if enabled
-        let geoLocations: StreamingLocation[] = [];
-        if (enableGeolocation) {
-          setCurrentPhase("Locating streaming sessions...");
-          try {
-            const ipData = extractUniqueIPs(history);
-            if (ipData.size > 0) {
-              geoLocations = await geolocateIPs(ipData);
-              console.log(`[ImageExport] Found ${geoLocations.length} locations for ${userName}`);
-              allGeoLocations.push(...geoLocations);
-            }
-          } catch (e) {
-            console.warn("Failed to fetch geolocation:", e);
-          }
-        }
-
-        // Capture full image
-        if (exportMode === 'single' || exportMode === 'both') {
-          setCurrentPhase("Rendering full report...");
-          isRenderReadyRef.current = false;
-          setRenderMode('full');
-          setRenderData({ user, stats, geoLocations });
-          
-          // Wait for React to update state and render
-          await new Promise(resolve => setTimeout(resolve, 200));
-          
-          try {
-            await waitForRender('full');
-            await new Promise(resolve => setTimeout(resolve, 300));
-
-            if (renderContainerRef.current) {
-              setCurrentPhase("Capturing full image...");
-              const reportElement = renderContainerRef.current.querySelector('.export-report') as HTMLElement;
-              if (reportElement) {
-                const imageBlob = await captureFullImage(reportElement);
-                zip.file(`${safeFileName}_Plex_Wrapped_${displayYear.replace(/\s/g, '_')}.png`, imageBlob);
-              } else {
-                throw new Error("Report element not found");
-              }
-            }
-          } catch (e) {
-            console.error("Full image capture failed:", e);
-            toast.error(`Failed to capture full image for ${userName}`);
-          }
-        }
-
-        // Capture slides
-        if (exportMode === 'slides' || exportMode === 'both') {
-          setCurrentPhase("Rendering story slides...");
-          isRenderReadyRef.current = false;
-          setRenderMode('slides');
-          setRenderData(null);
-          await new Promise(resolve => setTimeout(resolve, 100));
-          setRenderData({ user, stats, geoLocations });
-          
-          // Wait for React to update state and render
-          await new Promise(resolve => setTimeout(resolve, 200));
-          
-          try {
-            await waitForRender('slides');
-            await new Promise(resolve => setTimeout(resolve, 300));
-
-            if (slidesContainerRef.current) {
-              setCurrentPhase("Capturing story slides...");
-              const slides = await captureSlides(slidesContainerRef.current);
-              if (slides.length > 0) {
-                const slidesFolder = zip.folder(`${safeFileName}_Slides`);
-                slides.forEach((blob, i) => {
-                  slidesFolder?.file(`slide_${String(i + 1).padStart(2, '0')}.png`, blob);
-                });
-              } else {
-                throw new Error("No slides captured");
-              }
-            }
-          } catch (e) {
-            console.error("Slides capture failed:", e);
-            toast.error(`Failed to capture slides for ${userName}`);
-          }
-        }
-
-        completed++;
-        setProgress((completed / totalItems) * 100);
-      }
-
-      // Process "All Users Combined" if selected
-      if (includeAllCombined) {
+      if (selectionMode === 'combined') {
+        // Export all users combined
         setCurrentUser("All Users Combined");
-        
-        // If we haven't fetched any stats yet (only combined was selected), fetch all users
-        if (allStats.length === 0) {
-          setCurrentPhase("Fetching all users' watch history...");
-          for (const user of users) {
-            const history = await getHistory(config, user.user_id, startStr, endStr, 5000, normalizeAnomalies);
-            let stats = calculateWrappedStats(history);
-            try {
-              const metaStats = await fetchMetadataStats(config, history);
-              stats = { ...stats, ...metaStats };
-            } catch (e) {
-              console.warn("Failed to fetch metadata:", e);
-            }
-            allStats.push(stats);
+        setCurrentPhase("Fetching all users' watch history...");
 
-            if (enableGeolocation) {
-              try {
-                const ipData = extractUniqueIPs(history);
-                if (ipData.size > 0) {
-                  const geoLocs = await geolocateIPs(ipData);
-                  allGeoLocations.push(...geoLocs);
-                }
-              } catch (e) {
-                console.warn("Failed to fetch geolocation:", e);
+        const allStats: WrappedStats[] = [];
+        const allGeoLocations: StreamingLocation[] = [];
+
+        for (let i = 0; i < users.length; i++) {
+          const user = users[i];
+          setCurrentPhase(`Fetching ${user.friendly_name || user.username} (${i + 1}/${users.length})...`);
+          
+          const history = await getHistory(config, user.user_id, startStr, endStr, 5000, normalizeAnomalies);
+          let stats = calculateWrappedStats(history);
+          try {
+            const metaStats = await fetchMetadataStats(config, history);
+            stats = { ...stats, ...metaStats };
+          } catch (e) {
+            console.warn("Failed to fetch metadata:", e);
+          }
+          allStats.push(stats);
+
+          if (enableGeolocation) {
+            try {
+              const ipData = extractUniqueIPs(history);
+              if (ipData.size > 0) {
+                const geoLocs = await geolocateIPs(ipData);
+                allGeoLocations.push(...geoLocs);
               }
+            } catch (e) {
+              console.warn("Failed to fetch geolocation:", e);
             }
           }
+
+          setProgress(((i + 1) / users.length) * 50); // First 50% for data fetching
         }
 
         setCurrentPhase("Merging statistics...");
@@ -657,7 +546,7 @@ export const ImageExportDialog = ({
 
         // Create a pseudo-user for "All Users Combined"
         const combinedUser: TautulliUser = {
-          user_id: ALL_USERS_COMBINED_ID,
+          user_id: -999,
           username: "all_users",
           friendly_name: "All Users",
           email: "",
@@ -696,6 +585,8 @@ export const ImageExportDialog = ({
           }
         }
 
+        setProgress(75);
+
         // Capture slides for combined
         if (exportMode === 'slides' || exportMode === 'both') {
           setCurrentPhase("Rendering combined story slides...");
@@ -727,8 +618,110 @@ export const ImageExportDialog = ({
           }
         }
 
-        completed++;
-        setProgress((completed / totalItems) * 100);
+        setProgress(100);
+
+      } else {
+        // Export individual users
+        const selectedUsers = users.filter(u => selectedUserIds.has(u.user_id));
+        let completed = 0;
+
+        for (const user of selectedUsers) {
+          const userName = user.friendly_name || user.username;
+          const safeFileName = userName.replace(/[^a-zA-Z0-9]/g, "_");
+          setCurrentUser(userName);
+          setCurrentPhase("Fetching watch history...");
+
+          const history = await getHistory(config, user.user_id, startStr, endStr, 5000, normalizeAnomalies);
+          let stats = calculateWrappedStats(history);
+          
+          setCurrentPhase("Loading metadata...");
+          try {
+            const metaStats = await fetchMetadataStats(config, history);
+            stats = { ...stats, ...metaStats };
+          } catch (e) {
+            console.warn("Failed to fetch metadata:", e);
+          }
+
+          // Fetch geolocation data if enabled
+          let geoLocations: StreamingLocation[] = [];
+          if (enableGeolocation) {
+            setCurrentPhase("Locating streaming sessions...");
+            try {
+              const ipData = extractUniqueIPs(history);
+              if (ipData.size > 0) {
+                geoLocations = await geolocateIPs(ipData);
+                console.log(`[ImageExport] Found ${geoLocations.length} locations for ${userName}`);
+              }
+            } catch (e) {
+              console.warn("Failed to fetch geolocation:", e);
+            }
+          }
+
+          // Capture full image
+          if (exportMode === 'single' || exportMode === 'both') {
+            setCurrentPhase("Rendering full report...");
+            isRenderReadyRef.current = false;
+            setRenderMode('full');
+            setRenderData({ user, stats, geoLocations });
+            
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            try {
+              await waitForRender('full');
+              await new Promise(resolve => setTimeout(resolve, 300));
+
+              if (renderContainerRef.current) {
+                setCurrentPhase("Capturing full image...");
+                const reportElement = renderContainerRef.current.querySelector('.export-report') as HTMLElement;
+                if (reportElement) {
+                  const imageBlob = await captureFullImage(reportElement);
+                  zip.file(`${safeFileName}_Plex_Wrapped_${displayYear.replace(/\s/g, '_')}.png`, imageBlob);
+                } else {
+                  throw new Error("Report element not found");
+                }
+              }
+            } catch (e) {
+              console.error("Full image capture failed:", e);
+              toast.error(`Failed to capture full image for ${userName}`);
+            }
+          }
+
+          // Capture slides
+          if (exportMode === 'slides' || exportMode === 'both') {
+            setCurrentPhase("Rendering story slides...");
+            isRenderReadyRef.current = false;
+            setRenderMode('slides');
+            setRenderData(null);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            setRenderData({ user, stats, geoLocations });
+            
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            try {
+              await waitForRender('slides');
+              await new Promise(resolve => setTimeout(resolve, 300));
+
+              if (slidesContainerRef.current) {
+                setCurrentPhase("Capturing story slides...");
+                const slides = await captureSlides(slidesContainerRef.current);
+                if (slides.length > 0) {
+                  const slidesFolder = zip.folder(`${safeFileName}_Slides`);
+                  slides.forEach((blob, i) => {
+                    slidesFolder?.file(`slide_${String(i + 1).padStart(2, '0')}.png`, blob);
+                  });
+                } else {
+                  throw new Error("No slides captured");
+                }
+              }
+            } catch (e) {
+              console.error("Slides capture failed:", e);
+              toast.error(`Failed to capture slides for ${userName}`);
+            }
+          }
+
+          completed++;
+          setProgress((completed / selectedUsers.length) * 100);
+        }
       }
 
       // Clear render data
@@ -741,6 +734,8 @@ export const ImageExportDialog = ({
         toast.error("No images were captured");
         return;
       }
+
+      const totalItems = selectionMode === 'combined' ? 1 : selectedUserIds.size;
 
       if (totalItems === 1 && exportMode === 'single') {
         const files = Object.keys(zip.files);
@@ -789,11 +784,8 @@ export const ImageExportDialog = ({
     zIndex: -9999,
   };
 
-  // Count for display (excluding the special combined ID)
-  const displayCount = selectedUserIds.has(ALL_USERS_COMBINED_ID) 
-    ? selectedUserIds.size - 1 + (selectedUserIds.size > 1 ? 0 : 1) // If only combined selected, count as 1
-    : selectedUserIds.size;
-  const totalExportCount = selectedUserIds.size;
+  const canExport = selectionMode === 'combined' || selectedUserIds.size > 0;
+  const exportCount = selectionMode === 'combined' ? 1 : selectedUserIds.size;
 
   return (
     <>
@@ -871,74 +863,90 @@ export const ImageExportDialog = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between py-2 border-b">
-                <Label className="text-sm font-medium">
-                  Select Users ({totalExportCount} selected)
-                </Label>
-                <Button variant="ghost" size="sm" onClick={toggleAll}>
-                  {selectedUserIds.size === users.length ? "Deselect All" : "Select All"}
-                </Button>
+              {/* Selection Mode Toggle */}
+              <div className="py-3 border-b">
+                <Label className="text-sm font-medium mb-3 block">Export Type</Label>
+                <RadioGroup value={selectionMode} onValueChange={(v) => setSelectionMode(v as SelectionMode)} className="grid grid-cols-2 gap-2">
+                  <div>
+                    <RadioGroupItem value="individual" id="individual" className="peer sr-only" />
+                    <Label
+                      htmlFor="individual"
+                      className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary cursor-pointer text-center"
+                    >
+                      <ImageIcon className="w-5 h-5 mb-1" />
+                      <span className="text-xs">Individual Users</span>
+                    </Label>
+                  </div>
+                  <div>
+                    <RadioGroupItem value="combined" id="combined" className="peer sr-only" />
+                    <Label
+                      htmlFor="combined"
+                      className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary cursor-pointer text-center"
+                    >
+                      <Users className="w-5 h-5 mb-1" />
+                      <span className="text-xs">All Users Combined</span>
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
 
-              <ScrollArea className="h-[250px] pr-4">
-                <div className="space-y-2 py-2">
-                  {/* All Users Combined option */}
-                  <div
-                    className="flex items-center space-x-3 p-2 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/20 hover:bg-primary/20 cursor-pointer"
-                    onClick={() => toggleUser(ALL_USERS_COMBINED_ID)}
-                  >
-                    <Checkbox
-                      id="user-all-combined"
-                      checked={selectedUserIds.has(ALL_USERS_COMBINED_ID)}
-                      onCheckedChange={() => toggleUser(ALL_USERS_COMBINED_ID)}
-                    />
-                    <div className="flex-1">
-                      <Label htmlFor="user-all-combined" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                        <Users className="w-4 h-4 text-primary" />
-                        All Users Combined
-                      </Label>
-                      <p className="text-xs text-muted-foreground">Aggregate stats from all {users.length} users</p>
-                    </div>
-                    {selectedUserIds.has(ALL_USERS_COMBINED_ID) && (
-                      <Check className="w-4 h-4 text-primary" />
-                    )}
+              {selectionMode === 'individual' ? (
+                <>
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <Label className="text-sm font-medium">
+                      Select Users ({selectedUserIds.size} of {users.length})
+                    </Label>
+                    <Button variant="ghost" size="sm" onClick={toggleAll}>
+                      {selectedUserIds.size === users.length ? "Deselect All" : "Select All"}
+                    </Button>
                   </div>
 
-                  <div className="border-t my-2" />
-
-                  {/* Individual users */}
-                  {users.map((user) => (
-                    <div
-                      key={user.user_id}
-                      className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
-                      onClick={() => toggleUser(user.user_id)}
-                    >
-                      <Checkbox
-                        id={`user-${user.user_id}`}
-                        checked={selectedUserIds.has(user.user_id)}
-                        onCheckedChange={() => toggleUser(user.user_id)}
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor={`user-${user.user_id}`} className="text-sm font-medium cursor-pointer">
-                          {user.friendly_name || user.username}
-                        </Label>
-                        {user.friendly_name && user.friendly_name !== user.username && (
-                          <p className="text-xs text-muted-foreground">@{user.username}</p>
-                        )}
-                      </div>
-                      {selectedUserIds.has(user.user_id) && (
-                        <Check className="w-4 h-4 text-primary" />
-                      )}
+                  <ScrollArea className="h-[200px] pr-4">
+                    <div className="space-y-2 py-2">
+                      {users.map((user) => (
+                        <div
+                          key={user.user_id}
+                          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                          onClick={() => toggleUser(user.user_id)}
+                        >
+                          <Checkbox
+                            id={`user-${user.user_id}`}
+                            checked={selectedUserIds.has(user.user_id)}
+                            onCheckedChange={() => toggleUser(user.user_id)}
+                          />
+                          <div className="flex-1">
+                            <Label htmlFor={`user-${user.user_id}`} className="text-sm font-medium cursor-pointer">
+                              {user.friendly_name || user.username}
+                            </Label>
+                            {user.friendly_name && user.friendly_name !== user.username && (
+                              <p className="text-xs text-muted-foreground">@{user.username}</p>
+                            )}
+                          </div>
+                          {selectedUserIds.has(user.user_id) && (
+                            <Check className="w-4 h-4 text-primary" />
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </ScrollArea>
+                </>
+              ) : (
+                <div className="py-6 text-center">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center mx-auto mb-4">
+                    <Users className="w-8 h-8 text-primary" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">All Users Combined</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Aggregate statistics from all {users.length} users into a single report
+                  </p>
                 </div>
-              </ScrollArea>
+              )}
 
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={onClose}>Cancel</Button>
-                <Button onClick={handleExport} disabled={selectedUserIds.size === 0}>
+                <Button onClick={handleExport} disabled={!canExport}>
                   <Image className="w-4 h-4 mr-2" />
-                  Export {totalExportCount} Report{totalExportCount !== 1 ? 's' : ''}
+                  Export {exportCount} Report{exportCount !== 1 ? 's' : ''}
                 </Button>
               </DialogFooter>
             </>

@@ -732,8 +732,7 @@ export const ExportableStorySlides = ({
                       fontSize: '12px',
                       fontWeight: 700,
                       color: colors.text,
-                      lineHeight: 1,
-                      marginTop: '-1px', // Fine-tune vertical position
+                      lineHeight: 0,
                     }}>
                       {i + 1}
                     </span>
@@ -753,7 +752,7 @@ export const ExportableStorySlides = ({
                     gap: '4px', 
                     flexShrink: 0,
                   }}>
-                    <MapPin size={12} color={colors.textMuted} style={{ marginTop: '-1px' }} />
+                    <MapPin size={12} color={colors.textMuted} />
                     <span style={{ 
                       fontSize: '12px', 
                       fontWeight: 500, 

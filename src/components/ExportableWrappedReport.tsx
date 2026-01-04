@@ -624,8 +624,7 @@ export const ExportableWrappedReport = ({
                             fontSize: '12px',
                             fontWeight: 700,
                             color: colors.text,
-                            lineHeight: 1,
-                            marginTop: '-1px', // Fine-tune vertical position
+                            lineHeight: 0,
                           }}>
                             {i + 1}
                           </span>
@@ -645,7 +644,7 @@ export const ExportableWrappedReport = ({
                           gap: '6px', 
                           flexShrink: 0,
                         }}>
-                          <MapPin size={14} color={colors.textMuted} style={{ marginTop: '-1px' }} />
+                          <MapPin size={14} color={colors.textMuted} />
                           <span style={{ 
                             fontSize: '13px', 
                             fontWeight: 500, 

@@ -37,6 +37,9 @@ const DEFAULT_CONFIG: ServerConfig = {
     customTitle: 'Plex Wrapped',
     useCustomLogo: false,
     logoMaxHeight: 80,
+    enableGeolocation: false,
+    allowAllUsersInDiscreetMode: false,
+    showLeaderboard: true,
   },
   emailSettings: {
     appUrl: "",
@@ -80,6 +83,15 @@ export const loadServerConfig = async (): Promise<ServerConfig> => {
       }
       if (configCache.adminSettings.logoMaxHeight === undefined) {
         configCache.adminSettings.logoMaxHeight = 80;
+      }
+      if (configCache.adminSettings.enableGeolocation === undefined) {
+        configCache.adminSettings.enableGeolocation = false;
+      }
+      if (configCache.adminSettings.allowAllUsersInDiscreetMode === undefined) {
+        configCache.adminSettings.allowAllUsersInDiscreetMode = false;
+      }
+      if (configCache.adminSettings.showLeaderboard === undefined) {
+        configCache.adminSettings.showLeaderboard = true;
       }
       return configCache;
     }
@@ -168,6 +180,9 @@ export const getServerAdminSettings = (): AdminSettings => {
     customTitle: settings.customTitle || 'Plex Wrapped',
     useCustomLogo: settings.useCustomLogo || false,
     logoMaxHeight: settings.logoMaxHeight || 80,
+    enableGeolocation: settings.enableGeolocation || false,
+    allowAllUsersInDiscreetMode: settings.allowAllUsersInDiscreetMode || false,
+    showLeaderboard: settings.showLeaderboard !== false, // Default to true
   };
 };
 

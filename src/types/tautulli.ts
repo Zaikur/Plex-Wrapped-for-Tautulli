@@ -109,6 +109,19 @@ export interface WrappedStats {
   topMoviesByUsers: { title: string; userCount: number; totalTime: number }[];
   topShowsByUsers: { title: string; userCount: number; totalTime: number }[];
   peakConcurrentStreams: { count: number; date: string; time: string } | null;
+  streamingLocations: StreamingLocation[];
+}
+
+export interface StreamingLocation {
+  ip: string;
+  city: string;
+  region: string;
+  country: string;
+  countryCode: string;
+  lat: number;
+  lon: number;
+  sessionCount: number;
+  sessionDates?: string[]; // Array of formatted date strings for each session
 }
 
 export interface UserStats extends WrappedStats {

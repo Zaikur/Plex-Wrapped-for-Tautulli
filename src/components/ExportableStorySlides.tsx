@@ -1,15 +1,19 @@
+// src/components/ExportableStorySlides.tsx
+
 import { useEffect, useState } from "react";
-import { TautulliConfig, TautulliUser, WrappedStats } from "@/types/tautulli";
+import { TautulliConfig, TautulliUser, WrappedStats, StreamingLocation } from "@/types/tautulli";
 import { YearSelection, getDisplayYear, getYearsCount } from "./YearSelector";
 import { formatHours, getImageUrl } from "@/lib/tautulli";
-import { Clock, Film, Tv, Play, Calendar, Flame, Moon, Star, Trophy, Sparkles, Sunrise, Clapperboard } from "lucide-react";
+import { Clock, Film, Tv, Play, Calendar, Flame, Moon, Star, Trophy, Sparkles, Sunrise, Clapperboard, Globe, MapPin } from "lucide-react";
 import { getServerAdminSettings, checkLogoExists, getLogoUrl } from "@/lib/serverConfig";
+import { generateLocationInsight } from "@/lib/geolocation";
 
 interface ExportableStorySlidesProps {
   user: TautulliUser;
   stats: WrappedStats;
   yearSelection: YearSelection;
   config: TautulliConfig;
+  geoLocations?: StreamingLocation[];
   onReady?: () => void;
 }
 
@@ -30,11 +34,22 @@ const reorderDaysFromMonday = (watchByDay: { day: string; hours: number }[]) => 
   );
 };
 
+// Flag emoji helper
+const getFlagEmoji = (countryCode: string): string => {
+  if (!countryCode || countryCode.length !== 2) return "";
+  const codePoints = countryCode
+    .toUpperCase()
+    .split("")
+    .map((char) => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+};
+
 export const ExportableStorySlides = ({
   user,
   stats,
   yearSelection,
   config,
+  geoLocations = [],
   onReady,
 }: ExportableStorySlidesProps) => {
   const displayName = user.friendly_name || user.username;
@@ -198,7 +213,7 @@ export const ExportableStorySlides = ({
     </div>
   );
 
-  // Slide 2: Total Watch Time (Alignment Fixed)
+  // Slide 2: Total Watch Time
   slides.push(
     <div key="watchtime" className="story-slide" style={slideStyle}>
       <div style={gradientOverlay} />
@@ -568,6 +583,190 @@ export const ExportableStorySlides = ({
                 </div>
               );
             })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Optional Slide: GeoLocation
+  if (adminSettings.enableGeolocation && geoLocations.length > 0) {
+    // Aggregate locations by city+country to avoid duplicates
+    const locationMap = new Map<
+      string,
+      {
+        city: string;
+        region: string;
+        country: string;
+        countryCode: string;
+        lat: number;
+        lon: number;
+        sessionCount: number;
+      }
+    >();
+  
+    geoLocations.forEach((loc) => {
+      const key = `${loc.city}-${loc.country}`;
+      const existing = locationMap.get(key);
+      if (existing) {
+        existing.sessionCount += loc.sessionCount;
+      } else {
+        locationMap.set(key, {
+          city: loc.city,
+          region: loc.region,
+          country: loc.country,
+          countryCode: loc.countryCode,
+          lat: loc.lat,
+          lon: loc.lon,
+          sessionCount: loc.sessionCount,
+        });
+      }
+    });
+  
+    const aggregatedLocations = Array.from(locationMap.values());
+    const countries = [...new Set(aggregatedLocations.map(l => l.country))];
+    const cities = [...new Set(aggregatedLocations.map(l => l.city).filter(c => c !== 'Unknown'))];
+    const totalSessions = aggregatedLocations.reduce((sum, l) => sum + l.sessionCount, 0);
+    const sortedLocations = [...aggregatedLocations].sort((a, b) => b.sessionCount - a.sessionCount);
+    const topLocations = sortedLocations.slice(0, 5);
+    const insight = generateLocationInsight(aggregatedLocations);
+  
+    slides.push(
+      <div key="geolocation" className="story-slide" style={slideStyle}>
+        <div style={gradientOverlay} />
+        <div style={headerStyle}>{titleWithYear}</div>
+        <div style={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          padding: '70px 36px 50px', 
+          position: 'relative', 
+          zIndex: 1,
+          justifyContent: 'space-between',
+        }}>
+          {/* Top section */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', justifyContent: 'center' }}>
+              <Globe size={28} color={colors.cyan} />
+              <span style={{ fontSize: '24px', fontWeight: 700, color: colors.text }}>Streaming Globe</span>
+            </div>
+  
+            {/* Insight - no gradient, just colored text */}
+            <p style={{ 
+              fontSize: '15px', 
+              fontWeight: 600, 
+              textAlign: 'center', 
+              marginBottom: '20px',
+              color: colors.cyan,
+              lineHeight: 1.4,
+            }}>
+              {insight}
+            </p>
+          </div>
+  
+          {/* Globe Image - centered */}
+          <div style={{ 
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: '20px',
+          }}>
+            <img 
+              src="/globe.png" 
+              alt="Streaming Globe"
+              style={{
+                width: '160px',
+                height: '160px',
+                objectFit: 'contain',
+              }}
+              crossOrigin="anonymous"
+            />
+          </div>
+  
+          {/* Stats Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ textAlign: 'center', padding: '14px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
+              <p style={{ fontSize: '28px', fontWeight: 700, color: colors.cyan, margin: 0, lineHeight: 1.2 }}>{countries.length}</p>
+              <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{countries.length === 1 ? 'Country' : 'Countries'}</p>
+            </div>
+            <div style={{ textAlign: 'center', padding: '14px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
+              <p style={{ fontSize: '28px', fontWeight: 700, color: colors.pink, margin: 0, lineHeight: 1.2 }}>{cities.length}</p>
+              <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{cities.length === 1 ? 'City' : 'Cities'}</p>
+            </div>
+            <div style={{ textAlign: 'center', padding: '14px 8px', backgroundColor: colors.cardAlt, borderRadius: '12px' }}>
+              <p style={{ fontSize: '28px', fontWeight: 700, color: colors.purple, margin: 0, lineHeight: 1.2 }}>{totalSessions}</p>
+              <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>Sessions</p>
+            </div>
+          </div>
+  
+          {/* Top Locations */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <h4 style={{ fontSize: '12px', fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '12px', textAlign: 'center' }}>
+              Top Streaming Spots
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {topLocations.map((loc, i) => (
+                <div 
+                  key={`${loc.city}-${loc.country}`} 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px', 
+                    padding: '10px 12px', 
+                    backgroundColor: i === 0 ? `${colors.cyan}15` : colors.cardAlt, 
+                    borderRadius: '10px',
+                    border: i === 0 ? `1px solid ${colors.cyan}40` : 'none',
+                  }}
+                >
+                  <div style={{ 
+                    width: '26px', 
+                    height: '26px', 
+                    borderRadius: '50%', 
+                    background: `linear-gradient(135deg, ${colors.cyan}40, ${colors.purple}40)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: colors.text,
+                      lineHeight: 0,
+                      marginTop: '-15px', // FORCE LIFT:
+                    }}>
+                      {i + 1}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '14px', fontWeight: 600, color: colors.text, margin: 0, lineHeight: 1.3 }}>
+                      {loc.city !== "Unknown" ? loc.city : loc.region || loc.country}
+                    </p>
+                    <p style={{ fontSize: '11px', color: colors.textMuted, margin: 0, lineHeight: 1.3 }}>
+                      {loc.city !== "Unknown" && loc.country !== loc.city ? `${loc.country} ` : ''}
+                      {getFlagEmoji(loc.countryCode)}
+                    </p>
+                  </div>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '4px', 
+                    flexShrink: 0,
+                  }}>
+                    <MapPin size={12} color={colors.textMuted} />
+                    <span style={{ 
+                      fontSize: '12px', 
+                      fontWeight: 500, 
+                      color: colors.text,
+                      lineHeight: 1,
+                      marginTop: '-15px', // FORCE LIFT
+                    }}>
+                      {loc.sessionCount}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

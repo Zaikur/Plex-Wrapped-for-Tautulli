@@ -13,6 +13,9 @@ export interface AdminSettings {
   customTitle: string;
   useCustomLogo: boolean;
   logoMaxHeight: number; // Max height in pixels for the logo
+  enableGeolocation: boolean;
+  allowAllUsersInDiscreetMode: boolean; // NEW: Allow "All Users" report in discreet mode
+  showLeaderboard: boolean; // NEW: Show/hide leaderboard section
 }
 
 export interface EmailSettings {
@@ -96,6 +99,9 @@ export const getAdminSettings = (): AdminSettings => {
       customTitle: 'Plex Wrapped',
       useCustomLogo: false,
       logoMaxHeight: 80,
+      enableGeolocation: false,
+      allowAllUsersInDiscreetMode: false,
+      showLeaderboard: true,
     };
   }
   try {
@@ -108,6 +114,9 @@ export const getAdminSettings = (): AdminSettings => {
       customTitle: parsed.customTitle || 'Plex Wrapped',
       useCustomLogo: parsed.useCustomLogo || false,
       logoMaxHeight: parsed.logoMaxHeight || 80,
+      enableGeolocation: parsed.enableGeolocation || false,
+      allowAllUsersInDiscreetMode: parsed.allowAllUsersInDiscreetMode || false,
+      showLeaderboard: parsed.showLeaderboard !== false, // Default to true
     };
   } catch {
     return {
@@ -118,6 +127,9 @@ export const getAdminSettings = (): AdminSettings => {
       customTitle: 'Plex Wrapped',
       useCustomLogo: false,
       logoMaxHeight: 80,
+      enableGeolocation: false,
+      allowAllUsersInDiscreetMode: false,
+      showLeaderboard: true,
     };
   }
 };

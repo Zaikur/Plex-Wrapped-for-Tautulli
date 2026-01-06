@@ -733,7 +733,7 @@ export const ExportableStorySlides = ({
                       fontWeight: 700,
                       color: colors.text,
                       lineHeight: 0,
-                      marginTop: '-20px', // FORCE LIFT:
+                      marginTop: '-15px', // FORCE LIFT:
                     }}>
                       {i + 1}
                     </span>
@@ -759,7 +759,7 @@ export const ExportableStorySlides = ({
                       fontWeight: 500, 
                       color: colors.text,
                       lineHeight: 1,
-                      marginTop: '-20px', // FORCE LIFT
+                      marginTop: '-15px', // FORCE LIFT
                     }}>
                       {loc.sessionCount}
                     </span>

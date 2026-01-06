@@ -1,7 +1,7 @@
 // src/components/ImageExportDialog.tsx
 
 import { useState, useRef, useEffect } from "react";
-import { Image, Loader2, Check, Calendar, ImageIcon, LayoutGrid } from "lucide-react";
+import { Image, Loader2, Check, Calendar, ImageIcon, LayoutGrid, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,9 @@ interface ImageExportDialogProps {
 }
 
 type ExportMode = 'single' | 'slides' | 'both';
+
+// Special value for "All Users" selection
+const ALL_USERS_ID = -999;
 
 export const ImageExportDialog = ({
   isOpen,
@@ -80,10 +83,24 @@ export const ImageExportDialog = ({
   };
 
   const toggleAll = () => {
-    if (selectedUserIds.size === users.length) {
-      setSelectedUserIds(new Set());
+    // Count only real users (not ALL_USERS_ID)
+    const realUserIds = users.map(u => u.user_id);
+    const selectedRealUsers = [...selectedUserIds].filter(id => id !== ALL_USERS_ID);
+    
+    if (selectedRealUsers.length === realUserIds.length) {
+      // Deselect all real users, keep ALL_USERS_ID if selected
+      const newSelected = new Set<number>();
+      if (selectedUserIds.has(ALL_USERS_ID)) {
+        newSelected.add(ALL_USERS_ID);
+      }
+      setSelectedUserIds(newSelected);
     } else {
-      setSelectedUserIds(new Set(users.map(u => u.user_id)));
+      // Select all real users, keep ALL_USERS_ID if selected
+      const newSelected = new Set(realUserIds);
+      if (selectedUserIds.has(ALL_USERS_ID)) {
+        newSelected.add(ALL_USERS_ID);
+      }
+      setSelectedUserIds(newSelected);
     }
   };
 
@@ -239,10 +256,129 @@ export const ImageExportDialog = ({
     const normalizeAnomalies = adminSettings.normalizeTautulliAnomalies || false;
     const enableGeolocation = adminSettings.enableGeolocation || false;
 
-    const selectedUsers = users.filter(u => selectedUserIds.has(u.user_id));
+    // Separate "All Users" from individual users
+    const hasAllUsers = selectedUserIds.has(ALL_USERS_ID);
+    const individualUserIds = [...selectedUserIds].filter(id => id !== ALL_USERS_ID);
+    const selectedUsers = users.filter(u => individualUserIds.includes(u.user_id));
+    
+    // Calculate total items to process
+    const totalItems = (hasAllUsers ? 1 : 0) + selectedUsers.length;
     let completed = 0;
 
     try {
+      // Process "All Users" first if selected
+      if (hasAllUsers) {
+        setCurrentUser("All Users");
+        setCurrentPhase("Fetching watch history...");
+
+        // Fetch all history without user filter
+        const history = await getHistory(config, undefined, startStr, endStr, 5000, normalizeAnomalies);
+        let stats = calculateWrappedStats(history);
+        
+        setCurrentPhase("Loading metadata...");
+        try {
+          const metaStats = await fetchMetadataStats(config, history);
+          stats = { ...stats, ...metaStats };
+        } catch (e) {
+          console.warn("Failed to fetch metadata:", e);
+        }
+
+        // Fetch geolocation data if enabled
+        let geoLocations: StreamingLocation[] = [];
+        if (enableGeolocation) {
+          setCurrentPhase("Locating streaming sessions...");
+          try {
+            const ipData = extractUniqueIPs(history);
+            if (ipData.size > 0) {
+              geoLocations = await geolocateIPs(ipData);
+              console.log(`[ImageExport] Found ${geoLocations.length} locations for All Users`);
+            }
+          } catch (e) {
+            console.warn("Failed to fetch geolocation:", e);
+          }
+        }
+
+        // Create a pseudo-user for "All Users"
+        const allUsersUser: TautulliUser = {
+          user_id: ALL_USERS_ID,
+          username: "all_users",
+          friendly_name: "All Users",
+          email: "",
+          is_active: 1,
+          is_admin: 0,
+          is_home_user: 0,
+          is_allow_sync: 0,
+          is_restricted: 0,
+          thumb: "",
+        };
+
+        // Capture full image
+        if (exportMode === 'single' || exportMode === 'both') {
+          setCurrentPhase("Rendering full report...");
+          isRenderReadyRef.current = false;
+          setRenderMode('full');
+          setRenderData({ user: allUsersUser, stats, geoLocations });
+          
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          try {
+            await waitForRender('full');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            if (renderContainerRef.current) {
+              setCurrentPhase("Capturing full image...");
+              const reportElement = renderContainerRef.current.querySelector('.export-report') as HTMLElement;
+              if (reportElement) {
+                const imageBlob = await captureFullImage(reportElement);
+                zip.file(`All_Users_Plex_Wrapped_${displayYear.replace(/\s/g, '_')}.png`, imageBlob);
+              } else {
+                throw new Error("Report element not found");
+              }
+            }
+          } catch (e) {
+            console.error("Full image capture failed:", e);
+            toast.error(`Failed to capture full image for All Users`);
+          }
+        }
+
+        // Capture slides
+        if (exportMode === 'slides' || exportMode === 'both') {
+          setCurrentPhase("Rendering story slides...");
+          isRenderReadyRef.current = false;
+          setRenderMode('slides');
+          setRenderData(null);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          setRenderData({ user: allUsersUser, stats, geoLocations });
+          
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          try {
+            await waitForRender('slides');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            if (slidesContainerRef.current) {
+              setCurrentPhase("Capturing story slides...");
+              const slides = await captureSlides(slidesContainerRef.current);
+              if (slides.length > 0) {
+                const slidesFolder = zip.folder(`All_Users_Slides`);
+                slides.forEach((blob, i) => {
+                  slidesFolder?.file(`slide_${String(i + 1).padStart(2, '0')}.png`, blob);
+                });
+              } else {
+                throw new Error("No slides captured");
+              }
+            }
+          } catch (e) {
+            console.error("Slides capture failed:", e);
+            toast.error(`Failed to capture slides for All Users`);
+          }
+        }
+
+        completed++;
+        setProgress((completed / totalItems) * 100);
+      }
+
+      // Process individual users
       for (const user of selectedUsers) {
         const userName = user.friendly_name || user.username;
         const safeFileName = userName.replace(/[^a-zA-Z0-9]/g, "_");
@@ -341,7 +477,7 @@ export const ImageExportDialog = ({
         }
 
         completed++;
-        setProgress((completed / selectedUsers.length) * 100);
+        setProgress((completed / totalItems) * 100);
       }
 
       // Clear render data
@@ -355,7 +491,7 @@ export const ImageExportDialog = ({
         return;
       }
 
-      if (selectedUsers.length === 1 && exportMode === 'single') {
+      if (totalItems === 1 && exportMode === 'single') {
         const files = Object.keys(zip.files);
         if (files.length > 0) {
           const blob = await zip.files[files[0]].async('blob');
@@ -366,7 +502,7 @@ export const ImageExportDialog = ({
         saveAs(zipBlob, `Plex_Wrapped_${displayYear.replace(/\s/g, '_')}_Export.zip`);
       }
 
-      toast.success(`Successfully exported ${selectedUsers.length} report(s)`);
+      toast.success(`Successfully exported ${totalItems} report(s)`);
       onClose();
     } catch (error) {
       console.error("Export error:", error);
@@ -401,6 +537,10 @@ export const ImageExportDialog = ({
     pointerEvents: 'none',
     zIndex: -9999,
   };
+
+  // Count selected items for display
+  const selectedCount = selectedUserIds.size;
+  const realUserCount = users.length;
 
   return (
     <>
@@ -480,15 +620,37 @@ export const ImageExportDialog = ({
 
               <div className="flex items-center justify-between py-2 border-b">
                 <Label className="text-sm font-medium">
-                  Select Users ({selectedUserIds.size} of {users.length})
+                  Select Users ({selectedCount} selected)
                 </Label>
                 <Button variant="ghost" size="sm" onClick={toggleAll}>
-                  {selectedUserIds.size === users.length ? "Deselect All" : "Select All"}
+                  {[...selectedUserIds].filter(id => id !== ALL_USERS_ID).length === realUserCount ? "Deselect All" : "Select All"}
                 </Button>
               </div>
 
               <ScrollArea className="h-[200px] pr-4">
                 <div className="space-y-2 py-2">
+                  {/* All Users option at the top */}
+                  <div
+                    className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer border-b border-border pb-3 mb-2"
+                    onClick={() => toggleUser(ALL_USERS_ID)}
+                  >
+                    <Checkbox
+                      id="user-all"
+                      checked={selectedUserIds.has(ALL_USERS_ID)}
+                      onCheckedChange={() => toggleUser(ALL_USERS_ID)}
+                    />
+                    <div className="flex-1 flex items-center gap-2">
+                      <Users className="w-4 h-4 text-primary" />
+                      <Label htmlFor="user-all" className="text-sm font-medium cursor-pointer">
+                        All Users
+                      </Label>
+                    </div>
+                    {selectedUserIds.has(ALL_USERS_ID) && (
+                      <Check className="w-4 h-4 text-primary" />
+                    )}
+                  </div>
+
+                  {/* Individual users */}
                   {users.map((user) => (
                     <div
                       key={user.user_id}
@@ -520,7 +682,7 @@ export const ImageExportDialog = ({
                 <Button variant="outline" onClick={onClose}>Cancel</Button>
                 <Button onClick={handleExport} disabled={selectedUserIds.size === 0}>
                   <Image className="w-4 h-4 mr-2" />
-                  Export {selectedUserIds.size} Report{selectedUserIds.size !== 1 ? 's' : ''}
+                  Export {selectedCount} Report{selectedCount !== 1 ? 's' : ''}
                 </Button>
               </DialogFooter>
             </>

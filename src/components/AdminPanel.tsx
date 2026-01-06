@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, Eye, EyeOff, Lock, RefreshCw, Copy, Check, X, Users, Settings2, AlertCircle, Edit2, Server, Key, Loader2, Image, Type, Upload, Trash2 } from "lucide-react";
+import { Shield, Eye, EyeOff, Lock, RefreshCw, Copy, Check, X, Users, Settings2, AlertCircle, Edit2, Server, Key, Loader2, Image, Type, Upload, Trash2, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -552,6 +552,23 @@ export const AdminPanel = ({
                       </div>
                       <Switch id="discreet-mode" checked={settings.discreetMode} onCheckedChange={checked => handleSettingChange('discreetMode', checked)} />
                     </div>
+
+                    {/* Allow All Users in Discreet Mode - only show when discreet mode is enabled */}
+                    {settings.discreetMode && (
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 ml-4 border-l-2 border-primary/30">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="allow-all-users-discreet" className="text-base">Allow 'All Users' in Discreet Mode</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Auto-load the "All Users" report when visiting the site
+                          </p>
+                        </div>
+                        <Switch 
+                          id="allow-all-users-discreet" 
+                          checked={settings.allowAllUsersInDiscreetMode} 
+                          onCheckedChange={checked => handleSettingChange('allowAllUsersInDiscreetMode', checked)} 
+                        />
+                      </div>
+                    )}
                   
                     <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
                       <div className="space-y-0.5">
@@ -591,6 +608,23 @@ export const AdminPanel = ({
                         id="enable-geolocation" 
                         checked={settings.enableGeolocation} 
                         onCheckedChange={checked => handleSettingChange('enableGeolocation', checked)} 
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="show-leaderboard" className="text-base flex items-center gap-2">
+                          <Trophy className="w-4 h-4" />
+                          Show Leaderboard
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Display the user leaderboard in "All Users" reports
+                        </p>
+                      </div>
+                      <Switch 
+                        id="show-leaderboard" 
+                        checked={settings.showLeaderboard} 
+                        onCheckedChange={checked => handleSettingChange('showLeaderboard', checked)} 
                       />
                     </div>
                   </TabsContent>

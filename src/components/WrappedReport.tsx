@@ -82,6 +82,7 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
   const [adminSettings, setAdminSettings] = useState<AdminSettings>(getServerAdminSettings());
   const [userAuthenticated, setUserAuthenticated] = useState(false);
   const [isExportingSlides, setIsExportingSlides] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Geolocation state
   const [geoLocations, setGeoLocations] = useState<StreamingLocation[]>([]);
@@ -151,8 +152,13 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
   }, [adminSettings.enableGeolocation, stats]);
 
   const loadStats = useCallback(async () => {
-    // Don't load stats if in discreet mode and no user selected
-    if (adminSettings.discreetMode && selectedUserId === null) {
+    // Determine if we should load stats
+    const shouldLoadAllUsers = adminSettings.discreetMode && adminSettings.allowAllUsersInDiscreetMode && selectedUserId === null;
+    const shouldLoadSelectedUser = selectedUserId !== null;
+    const shouldLoadNonDiscreet = !adminSettings.discreetMode;
+
+    // Don't load stats if in discreet mode without allowAllUsersInDiscreetMode and no user selected
+    if (adminSettings.discreetMode && !adminSettings.allowAllUsersInDiscreetMode && selectedUserId === null) {
       return;
     }
 
@@ -249,16 +255,23 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
       console.error(error);
     }
     setIsLoading(false);
-  }, [config, selectedUserId, yearSelection, adminSettings.discreetMode, adminSettings.passwordProtectUsers, adminSettings.normalizeTautulliAnomalies, userAuthenticated]);
+    setInitialLoadDone(true);
+  }, [config, selectedUserId, yearSelection, adminSettings.discreetMode, adminSettings.allowAllUsersInDiscreetMode, adminSettings.passwordProtectUsers, adminSettings.normalizeTautulliAnomalies, userAuthenticated]);
 
   useEffect(() => {
-    // Only auto-load stats if:
-    // 1. Not in discreet mode, OR
-    // 2. A user is selected (and authenticated if password protection is on)
-    if (!adminSettings.discreetMode || (selectedUserId !== null && (!adminSettings.passwordProtectUsers || userAuthenticated))) {
+    // Determine when to auto-load stats
+    const shouldAutoLoad = 
+      // Non-discreet mode: always auto-load
+      !adminSettings.discreetMode ||
+      // Discreet mode with allowAllUsersInDiscreetMode: auto-load "All Users"
+      (adminSettings.discreetMode && adminSettings.allowAllUsersInDiscreetMode && selectedUserId === null) ||
+      // Discreet mode with a selected user (and authenticated if password protection is on)
+      (adminSettings.discreetMode && selectedUserId !== null && (!adminSettings.passwordProtectUsers || userAuthenticated));
+
+    if (shouldAutoLoad) {
       loadStats();
     }
-  }, [loadStats, adminSettings.discreetMode, adminSettings.passwordProtectUsers, selectedUserId, userAuthenticated]);
+  }, [loadStats, adminSettings.discreetMode, adminSettings.allowAllUsersInDiscreetMode, adminSettings.passwordProtectUsers, selectedUserId, userAuthenticated]);
 
   const handleUserSelect = (userId: number | null) => {
     setSelectedUserId(userId);
@@ -384,8 +397,8 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
   const yearsCount = getYearsCount(oldestYear);
   const title = getTitle();
 
-  // Show welcome screen if in discreet mode and no user selected
-  const showWelcomeScreen = adminSettings.discreetMode && selectedUserId === null && !stats;
+  // Show welcome screen if in discreet mode without allowAllUsersInDiscreetMode and no user selected
+  const showWelcomeScreen = adminSettings.discreetMode && !adminSettings.allowAllUsersInDiscreetMode && selectedUserId === null && !stats;
 
   return (
     <div className="min-h-screen">
@@ -770,7 +783,7 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
               <PeakConcurrent peakConcurrentStreams={stats.peakConcurrentStreams} />
             </section>
           )}
-          {allUserStats.length > 1 && (
+          {adminSettings.showLeaderboard && allUserStats.length > 1 && (
             <section>
               <Leaderboard userStats={allUserStats} />
             </section>

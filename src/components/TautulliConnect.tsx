@@ -91,7 +91,7 @@ export const TautulliConnect = ({ onConnect }: TautulliConnectProps) => {
             <Input
               id="url"
               type="url"
-              placeholder="http://localhost:8181"
+              placeholder="http://192.168.1.5:8181"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               className="bg-background/50 border-border focus:border-primary focus:ring-primary"
@@ -116,9 +116,11 @@ export const TautulliConnect = ({ onConnect }: TautulliConnectProps) => {
             </p>
             <div className="text-xs text-muted-foreground/70 mt-2 p-2 bg-muted/30 rounded space-y-1">
               <p className="font-medium text-muted-foreground">💡 Connection Tips:</p>
-              <p>• Use <code className="bg-muted px-1 rounded">localhost:8181</code> if running locally</p>
-              <p>• For remote access, use HTTPS with a reverse proxy</p>
-              <p>• IP addresses may not work due to browser security</p>
+              <p>• Use your server's IP address: <code className="bg-muted px-1 rounded">http://192.168.1.5:8181</code></p>
+              <p>• If you have a HTTP Root in Tautulli (like /stats), include it: <code className="bg-muted px-1 rounded">http://192.168.1.5:8181/stats</code></p>
+              <p>• Docker users having issues? Try <code className="bg-muted px-1 rounded">http://host.docker.internal:8181</code></p>
+              <p>• Avoid using <code className="bg-muted px-1 rounded">localhost</code> or <code className="bg-muted px-1 rounded">127.0.0.1</code> from Docker</p>
+              <p>• Remote access: Use a reverse proxy with HTTPS</p>
             </div>
           </div>
 

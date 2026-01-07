@@ -1,4 +1,4 @@
-// server.js - Updated with better error handling for Tautulli connections
+// server.js
 
 const express = require('express');
 const fs = require('fs').promises;
@@ -237,7 +237,9 @@ app.get('/api/tautulli', async (req, res) => {
     }
 
     const tautulliUrl = new URL(tautulliBaseUrl);
-    tautulliUrl.pathname = '/api/v2';
+    // Preserve existing path (e.g., /stats) and append /api/v2
+    const existingPath = tautulliUrl.pathname !== '/' ? tautulliUrl.pathname : '';
+    tautulliUrl.pathname = `${existingPath}/api/v2`;
     
     Object.keys(req.query).forEach(key => {
       tautulliUrl.searchParams.append(key, req.query[key]);
@@ -253,9 +255,16 @@ app.get('/api/tautulli', async (req, res) => {
     // Check if response is OK
     if (!response.ok) {
       console.error('[Tautulli Proxy] HTTP Error:', response.status, response.statusText);
+      
+      let hint = 'Check that Tautulli is running and accessible at the configured URL';
+      
+      if (response.status === 404) {
+        hint = 'API endpoint not found. If you have a HTTP Root configured in Tautulli (e.g., /stats), make sure to include it in your URL: http://192.168.1.250:8181/stats';
+      }
+      
       return res.status(response.status).json({ 
         error: `Tautulli returned HTTP ${response.status}: ${response.statusText}`,
-        hint: 'Check that Tautulli is running and accessible at the configured URL'
+        hint: hint
       });
     }
     

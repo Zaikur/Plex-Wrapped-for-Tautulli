@@ -1,6 +1,11 @@
 import { format as formatDate } from "date-fns";
 import { TautulliUser, WatchHistory, WrappedStats, TautulliConfig } from "@/types/tautulli";
 
+// Helper function to check if content is video (movies/TV only)
+const isVideoContent = (mediaType: string): boolean => {
+  return mediaType === 'movie' || mediaType === 'episode';
+};
+
 // Use proxy endpoint instead of direct Tautulli calls
 const buildProxyUrl = (cmd: string, params: Record<string, string> = {}) => {
   const url = new URL('/api/tautulli', window.location.origin);
@@ -425,6 +430,16 @@ export const getHistory = async (
     const r1 = r0.grouped > 0 ? await fetchAll("1") : null;
     const best = r1 && r1.grouped < r0.grouped ? r1 : r0;
 
+    // Filter out music, photos, and other non-video content
+    const beforeFilterCount = best.filtered.length;
+    best.filtered = best.filtered.filter((h) => isVideoContent(h.media_type));
+    const afterFilterCount = best.filtered.length;
+    const filteredOutCount = beforeFilterCount - afterFilterCount;
+    
+    if (filteredOutCount > 0) {
+      console.log(`[getHistory] Filtered out ${filteredOutCount} non-video items (music, photos, etc.)`);
+    }
+
     // Normalize anomalies if enabled
     if (normalizeAnomalies && best.filtered.length > 0) {
       console.log("[Normalization] Starting anomaly detection and correction...");
@@ -556,7 +571,7 @@ export const getHistory = async (
       grouping: best.grouping,
       groupedRows: best.grouped,
       fetched: best.all.length,
-      filtered: best.filtered.length,
+      videoOnly: best.filtered.length,
       normalized: normalizeAnomalies,
     });
 
@@ -588,7 +603,7 @@ export const getOldestHistoryYear = async (config: TautulliConfig): Promise<numb
     }
     return null;
   } catch {
-    return [];
+    return null;
   }
 };
 
@@ -648,7 +663,10 @@ export const getImageUrl = (config: TautulliConfig, thumb: string): string => {
 };
 
 export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => {
-  if (!history.length) {
+  // Filter to only video content (movies and TV episodes)
+  const videoHistory = history.filter((h) => isVideoContent(h.media_type));
+  
+  if (!videoHistory.length) {
     return {
       totalWatchTime: 0,
       totalMovies: 0,
@@ -738,14 +756,14 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
     return 0;
   };
 
-  const totalWatchTime = history.reduce((sum, item) => sum + getSessionSeconds(item), 0);
+  const totalWatchTime = videoHistory.reduce((sum, item) => sum + getSessionSeconds(item), 0);
 
-  const movies = history.filter((h) => h.media_type === 'movie');
-  const episodes = history.filter((h) => h.media_type === 'episode');
+  const movies = videoHistory.filter((h) => h.media_type === 'movie');
+  const episodes = videoHistory.filter((h) => h.media_type === 'episode');
   
   const uniqueMovies = new Set(movies.map(m => m.rating_key));
   const uniqueShows = new Set(episodes.map(e => e.grandparent_rating_key));
-  const uniqueTitles = new Set(history.map(h => h.rating_key));
+  const uniqueTitles = new Set(videoHistory.map(h => h.rating_key));
 
   // Top movies by watch time
   const movieCounts: Record<string, { count: number; time: number; year: number; thumb: string; users: Set<number> }> = {};
@@ -818,7 +836,7 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
   // Map JavaScript day (0=Sunday) to our day names
   const jsDayToName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   
-  history.forEach(h => {
+  videoHistory.forEach(h => {
     const date = new Date(getEventSeconds(h) * 1000);
     const day = jsDayToName[date.getDay()];
     dayStats[day] += getSessionSeconds(h);
@@ -833,7 +851,7 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
   const hourStats: Record<number, number> = {};
   for (let i = 0; i < 24; i++) { hourStats[i] = 0; }
   
-  history.forEach(h => {
+  videoHistory.forEach(h => {
     const date = new Date(getEventSeconds(h) * 1000);
     const hour = date.getHours();
     hourStats[hour] += getSessionSeconds(h);
@@ -849,7 +867,7 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
   const monthStats: Record<string, number> = {};
   monthNames.forEach(m => { monthStats[m] = 0; });
   
-  history.forEach(h => {
+  videoHistory.forEach(h => {
     const date = new Date(getEventSeconds(h) * 1000);
     const month = monthNames[date.getMonth()];
     monthStats[month] += getSessionSeconds(h);
@@ -862,7 +880,7 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
 
   // Watch by year
   const yearStats: Record<number, number> = {};
-  history.forEach(h => {
+  videoHistory.forEach(h => {
     const date = new Date(getEventSeconds(h) * 1000);
     const year = date.getFullYear();
     if (!yearStats[year]) yearStats[year] = 0;
@@ -877,26 +895,26 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
     .sort((a, b) => a.year - b.year);
 
   // Late night sessions (after midnight, before 5am)
-  const lateNightSessions = history.filter(h => {
+  const lateNightSessions = videoHistory.filter(h => {
     const hour = new Date(getEventSeconds(h) * 1000).getHours();
     return hour >= 0 && hour < 5;
   }).length;
 
   // Early bird sessions (5am - 8am)
-  const earlyBirdSessions = history.filter(h => {
+  const earlyBirdSessions = videoHistory.filter(h => {
     const hour = new Date(getEventSeconds(h) * 1000).getHours();
     return hour >= 5 && hour < 8;
   }).length;
 
   // Weekend percentage
-  const weekendHistory = history.filter(h => {
+  const weekendHistory = videoHistory.filter(h => {
     const day = new Date(getEventSeconds(h) * 1000).getDay();
     return day === 0 || day === 6;
   });
-  const weekendPercentage = Math.round((weekendHistory.length / history.length) * 100);
+  const weekendPercentage = Math.round((weekendHistory.length / videoHistory.length) * 100);
 
   // Find longest single session
-  const sessionsWithDuration = history.map(h => ({
+  const sessionsWithDuration = videoHistory.map(h => ({
     item: h,
     duration: getSessionSeconds(h)
   })).filter(s => s.duration > 0);
@@ -914,7 +932,7 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
 
   // Daily watch time for average calculation
   const dailyWatchTime: Record<string, number> = {};
-  history.forEach(h => {
+  videoHistory.forEach(h => {
     const dateKey = new Date(getEventSeconds(h) * 1000).toDateString();
     dailyWatchTime[dateKey] = (dailyWatchTime[dateKey] || 0) + getSessionSeconds(h);
   });
@@ -930,17 +948,17 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
 
   // Platform stats
   const platformCounts: Record<string, number> = {};
-  history.forEach(h => {
+  videoHistory.forEach(h => {
     const platform = h.platform || 'Unknown';
     platformCounts[platform] = (platformCounts[platform] || 0) + 1;
   });
   const platforms = Object.entries(platformCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(([name, count]) => ({ name, count, percentage: Math.round((count / history.length) * 100) }));
+    .map(([name, count]) => ({ name, count, percentage: Math.round((count / videoHistory.length) * 100) }));
 
   // First and last watch
-  const sortedByDate = [...history].sort((a, b) => getEventSeconds(a) - getEventSeconds(b));
+  const sortedByDate = [...videoHistory].sort((a, b) => getEventSeconds(a) - getEventSeconds(b));
   const firstWatchItem = sortedByDate[0];
   const lastWatchItem = sortedByDate[sortedByDate.length - 1];
   
@@ -955,7 +973,7 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
   } : null;
 
   // Longest streak
-  const watchDateTimestamps = [...new Set(history.map(h => {
+  const watchDateTimestamps = [...new Set(videoHistory.map(h => {
     const d = new Date(getEventSeconds(h) * 1000);
     return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   }))].sort((a, b) => a - b);
@@ -977,7 +995,7 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
   }
   
   // Average session length
-  const avgSessionLength = history.length > 0 ? totalWatchTime / history.length : 0;
+  const avgSessionLength = videoHistory.length > 0 ? totalWatchTime / videoHistory.length : 0;
 
   // Peak hour
   const peakHourEntry = Object.entries(hourStats).sort((a, b) => b[1] - a[1])[0];
@@ -1004,7 +1022,7 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
 
   // Content decades
   const decadeCounts: Record<string, { count: number; time: number }> = {};
-  history.forEach(h => {
+  videoHistory.forEach(h => {
     if (h.year) {
       const decade = `${Math.floor(h.year / 10) * 10}s`;
       if (!decadeCounts[decade]) {
@@ -1021,7 +1039,7 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
 
   // Most rewatched
   const titlePlayCounts: Record<string, number> = {};
-  history.forEach(h => {
+  videoHistory.forEach(h => {
     const title = h.grandparent_title || h.full_title || h.title;
     titlePlayCounts[title] = (titlePlayCounts[title] || 0) + 1;
   });
@@ -1085,7 +1103,7 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
     return start > 0 && end > start ? { start, end } : null;
   };
 
-  const sessionsForConcurrency = history
+  const sessionsForConcurrency = videoHistory
     .map(getConcurrencyWindow)
     .filter((s): s is { start: number; end: number } => Boolean(s));
 
@@ -1150,7 +1168,7 @@ export const calculateWrappedStats = (history: WatchHistory[]): WrappedStats => 
     firstWatch,
     lastWatch,
     longestStreak,
-    totalSessions: history.length,
+    totalSessions: videoHistory.length,
     peakHour,
     morningWatchTime,
     afternoonWatchTime,
@@ -1175,6 +1193,9 @@ export const fetchMetadataStats = async (
   topActors: { name: string; count: number; titleCount: number; watchTime: number }[];
   topDirectors: { name: string; count: number; titleCount: number; watchTime: number }[];
 }> => {
+  // Filter to only video content
+  const videoHistory = history.filter((h) => isVideoContent(h.media_type));
+  
   const movieAgg = new Map<number, { watchTime: number; users: Set<number> }>();
   const showAgg = new Map<number, { watchTime: number; users: Set<number> }>();
 
@@ -1206,7 +1227,7 @@ export const fetchMetadataStats = async (
     }
   };
 
-  history.forEach((h) => {
+  videoHistory.forEach((h) => {
     const playDuration = normalizeDurationSeconds(h.play_duration);
     let duration = playDuration;
     

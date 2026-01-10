@@ -1,4 +1,9 @@
-<img width="506" height="82" alt="Image" src="https://github.com/user-attachments/assets/3e56ec29-2d5c-4845-9c80-35ced932a246" />
+<p align="center">
+<img width="506" height="82" alt="Image" src="https://github.com/user-attachments/assets/3e56ec29-2d5c-4845-9c80-35ced932a246" /><br>
+   <a href="https://github.com/netplexflix/Plex-Wrapped-for-Tautulli/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/netplexflix/Plex-Wrapped-for-Tautulli?style=plastic"></a>
+   <a href="https://hub.docker.com/repository/docker/netplexflix/pwft"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/netplexflix/pwft?style=plastic"></a>
+   <a href="https://discord.gg/VBNUJd7tx3"><img alt="Discord" src="https://img.shields.io/discord/1329439972796928041?style=plastic&label=Discord"></a>
+</p> 
 <br><br>
 
 A year-in-review wrapped report for your Plex server, powered by Tautulli data. Self hosted with Docker.<br>

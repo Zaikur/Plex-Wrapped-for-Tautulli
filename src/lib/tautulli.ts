@@ -218,29 +218,25 @@ export const testConnection = async (config: TautulliConfig): Promise<{ success:
       ...config,
       url: normalizeUrl(config.url)
     };
-    
-    const saveResponse = await fetch('/api/config', {
+
+    const response = await fetch('/api/admin/tautulli/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tautulli: normalizedConfig })
+      body: JSON.stringify(normalizedConfig)
     });
-    
-    if (!saveResponse.ok) {
-      return { success: false, error: 'Failed to save configuration' };
+
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const data = await response.json();
+        errorMessage = data.error || errorMessage;
+      } catch {
+        // Ignore JSON parsing errors and keep the HTTP fallback.
+      }
+      return { success: false, error: errorMessage };
     }
 
-    const response = await fetch(buildProxyUrl('get_server_info'), {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      return { success: false, error: `HTTP ${response.status}: ${response.statusText}` };
-    }
-    const data = await response.json();
-    return { success: data.response?.result === 'success', error: data.response?.result !== 'success' ? 'Invalid API response' : undefined };
+    return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     return { 

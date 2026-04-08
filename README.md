@@ -19,6 +19,7 @@ A few examples of what it looks like on mobile:<br>
 ### Prerequisites
 - Docker and Docker Compose installed
 - A running Tautulli instance
+- Plex accounts must be able to sign in through plex.tv
 
 ### Quick Start
 1. Download the `docker-compose.yml` file from this repository
@@ -36,16 +37,21 @@ docker-compose up -d
 ### Tautulli Connection
 
 1. Access the app at `http://localhost:2025`.
-2. Open the Admin Panel and set your Admin password
-3. Enter your Tautulli `IP:PORT` and API Key (Find this in Tautulli → Settings → Web Interface → API Key)
+2. Sign in with Plex. The first successful Plex login claims the admin account for this installation.
+3. Open the Admin Panel with that admin Plex account.
+4. Enter your Tautulli `IP:PORT` and API Key (Find this in Tautulli → Settings → Web Interface → API Key)
+
+### Authentication
+
+- Admin access is bound to a single Plex account.
+- Regular users sign in with Plex and can only view their own wrapped report.
+- Plex users are matched to Tautulli users by username by default.
+- If a Plex username and Tautulli username do not match, add an override in the Admin Panel `Users` tab.
 
 ### Optional Settings
 
 - **Custom Logo:** Upload your custom logo to be used in reports and export slides. You can adjust the size with the slider.
 - **Custom Title:** Use a custom title instead of "Plex Wrapped".
-- **Discreet Mode:** Replaces the user dropdown with a username input field. Users need to enter their exact username. (NOT 'Friendly name')
-- **Allow 'All Users' in Discreet Mode:** Will auto-load the "All Users" report when visiting the site.
-- **Password Protect Users:** Generates passwords for each user. (See `Users`Tab)
 - **Normalize Tautulli Anomalies:** Fixes duration anomalies found in Tautulli history by capping watch times to actual runtime.
 > [!NOTE]
 > When not closed correctly, sessions in Tautulli can keep 'counting', resulting in sometimes days or weeks worth of 'watch history' for a single session.
@@ -58,7 +64,7 @@ docker-compose up -d
 
 ## Build a Cache
 The app builds and uses a cache file for faster report generation.<br>
-On your first use, it's highly recommended to generate a report for `All Users` for `All Time`. Depending on your history, this can take quite some time.
+After initial setup, it's highly recommended to generate a report for `All Users` for `All Time` from the admin account. Depending on your history, this can take quite some time.
 Once completed, subsequent reports will generate consciderably faster especially if you enabled `Normalize Tautulli Anomalies`.
 
 ## Export Slides

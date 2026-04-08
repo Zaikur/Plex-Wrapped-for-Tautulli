@@ -3,10 +3,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Settings, Loader2, ChevronDown, X, Shield, Download } from "lucide-react";
+import { RefreshCw, Settings, Loader2, ChevronDown, X, Shield, Download, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserSelector } from "./UserSelector";
-import { UsernameInput } from "./UsernameInput";
 import {
   YearSelector,
   YearSelection,
@@ -38,7 +37,7 @@ import { TautulliConfig, TautulliUser, WrappedStats, UserStats, WatchHistory, St
 import { getUsers, getHistory, calculateWrappedStats, fetchMetadataStats, getOldestHistoryYear } from "@/lib/tautulli";
 import { extractUniqueIPs, geolocateIPs, GeoLocationProgress } from "@/lib/geolocation";
 import { AdminSettings } from "@/lib/adminStorage";
-import { getServerAdminSettings } from "@/lib/serverConfig";
+import { AuthSession, getServerAdminSettings, logoutPlexSession, startPlexLogin } from "@/lib/serverConfig";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
 import JSZip from "jszip";
@@ -48,10 +47,12 @@ import { CustomLogo } from "./CustomLogo";
 
 interface WrappedReportProps {
   config: TautulliConfig | null;
+  session: AuthSession | null;
+  onSessionChange: (session: AuthSession | null) => void;
   onDisconnect?: () => void;
 }
 
-export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
+export const WrappedReport = ({ config, session, onSessionChange, onDisconnect }: WrappedReportProps) => {
   if (!config) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -80,9 +81,7 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
   const [showControls, setShowControls] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminSettings, setAdminSettings] = useState<AdminSettings>(getServerAdminSettings());
-  const [userAuthenticated, setUserAuthenticated] = useState(false);
   const [isExportingSlides, setIsExportingSlides] = useState(false);
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Geolocation state
   const [geoLocations, setGeoLocations] = useState<StreamingLocation[]>([]);
@@ -107,13 +106,41 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
   }, [showControls]);
 
   useEffect(() => {
+    if (!session?.authenticated) {
+      setUsers([]);
+      setOldestYear(undefined);
+      return;
+    }
+
     const loadUsersAndOldestYear = async () => {
-      const [fetchedUsers, oldest] = await Promise.all([getUsers(config), getOldestHistoryYear(config)]);
-      setUsers(fetchedUsers);
-      if (oldest) setOldestYear(oldest);
+      const oldest = await getOldestHistoryYear(config);
+      if (oldest) {
+        setOldestYear(oldest);
+      }
+
+      if (session.isAdmin) {
+        const fetchedUsers = await getUsers(config);
+        setUsers(fetchedUsers);
+      } else {
+        setUsers([]);
+      }
     };
+
     loadUsersAndOldestYear();
-  }, [config]);
+  }, [config, session?.authenticated, session?.isAdmin]);
+
+  useEffect(() => {
+    if (!session?.authenticated) {
+      setSelectedUserId(null);
+      setStats(null);
+      setAllUserStats([]);
+      return;
+    }
+
+    if (!session.isAdmin) {
+      setSelectedUserId(session.tautulliUserId);
+    }
+  }, [session?.authenticated, session?.isAdmin, session?.tautulliUserId]);
 
   // Geolocation effect - runs when stats are loaded and geolocation is enabled
   useEffect(() => {
@@ -152,18 +179,11 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
   }, [adminSettings.enableGeolocation, stats]);
 
   const loadStats = useCallback(async () => {
-    // Determine if we should load stats
-    const shouldLoadAllUsers = adminSettings.discreetMode && adminSettings.allowAllUsersInDiscreetMode && selectedUserId === null;
-    const shouldLoadSelectedUser = selectedUserId !== null;
-    const shouldLoadNonDiscreet = !adminSettings.discreetMode;
-
-    // Don't load stats if in discreet mode without allowAllUsersInDiscreetMode and no user selected
-    if (adminSettings.discreetMode && !adminSettings.allowAllUsersInDiscreetMode && selectedUserId === null) {
+    if (!session?.authenticated) {
       return;
     }
 
-    // Don't load stats if password protection is enabled and user not authenticated
-    if (adminSettings.passwordProtectUsers && !userAuthenticated && selectedUserId !== null) {
+    if (!session.isAdmin && selectedUserId === null) {
       return;
     }
 
@@ -255,27 +275,48 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
       console.error(error);
     }
     setIsLoading(false);
-    setInitialLoadDone(true);
-  }, [config, selectedUserId, yearSelection, adminSettings.discreetMode, adminSettings.allowAllUsersInDiscreetMode, adminSettings.passwordProtectUsers, adminSettings.normalizeTautulliAnomalies, userAuthenticated]);
+  }, [config, selectedUserId, yearSelection, adminSettings.normalizeTautulliAnomalies, session?.authenticated, session?.isAdmin]);
 
   useEffect(() => {
-    // Determine when to auto-load stats
-    const shouldAutoLoad = 
-      // Non-discreet mode: always auto-load
-      !adminSettings.discreetMode ||
-      // Discreet mode with allowAllUsersInDiscreetMode: auto-load "All Users"
-      (adminSettings.discreetMode && adminSettings.allowAllUsersInDiscreetMode && selectedUserId === null) ||
-      // Discreet mode with a selected user (and authenticated if password protection is on)
-      (adminSettings.discreetMode && selectedUserId !== null && (!adminSettings.passwordProtectUsers || userAuthenticated));
-
-    if (shouldAutoLoad) {
+    if (session?.authenticated) {
       loadStats();
     }
-  }, [loadStats, adminSettings.discreetMode, adminSettings.allowAllUsersInDiscreetMode, adminSettings.passwordProtectUsers, selectedUserId, userAuthenticated]);
+  }, [loadStats, session?.authenticated]);
 
   const handleUserSelect = (userId: number | null) => {
+    if (!session?.authenticated) {
+      return;
+    }
+
+    if (!session.isAdmin) {
+      setSelectedUserId(session.tautulliUserId);
+      return;
+    }
+
     setSelectedUserId(userId);
-    setUserAuthenticated(userId !== null);
+  };
+
+  const handleStartPlexLogin = async () => {
+    try {
+      await startPlexLogin();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to start Plex sign-in");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      const nextSession = await logoutPlexSession();
+      setShowControls(false);
+      setSelectedUserId(null);
+      setStats(null);
+      setAllUserStats([]);
+      onSessionChange(nextSession);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to log out");
+    }
   };
 
   const scrollToContent = () => {
@@ -391,14 +432,15 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
   };
 
   const selectedUser = selectedUserId !== null ? users.find((u) => u.user_id === selectedUserId) : null;
-  const displayName = selectedUser?.friendly_name || selectedUser?.username || "Everyone";
+  const displayName = session?.isAdmin
+    ? selectedUser?.friendly_name || selectedUser?.username || "Everyone"
+    : session?.friendlyName || session?.tautulliUsername || session?.plexUsername || "You";
   const displayYear = getDisplayYear(yearSelection);
   const isAllTime = yearSelection.type === "alltime";
   const yearsCount = getYearsCount(oldestYear);
   const title = getTitle();
 
-  // Show welcome screen if in discreet mode without allowAllUsersInDiscreetMode and no user selected
-  const showWelcomeScreen = adminSettings.discreetMode && !adminSettings.allowAllUsersInDiscreetMode && selectedUserId === null && !stats;
+  const showLoginScreen = !session?.authenticated;
 
   return (
     <div className="min-h-screen">
@@ -417,9 +459,8 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
           }}
           className="text-center"
         >
-          {showWelcomeScreen ? (
+          {showLoginScreen ? (
             <>
-              {/* Logo for welcome screen */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -456,7 +497,7 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
                 }}
                 className="text-xl text-muted-foreground mb-8"
               >
-                Enter your username to view your stats
+                Sign in with Plex to view your personal Wrapped report
               </motion.p>
               <motion.div
                 initial={{
@@ -472,19 +513,17 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
                 }}
               >
                 <Button
-                  variant="outline"
                   size="lg"
-                  onClick={() => setShowControls(true)}
-                  className="text-lg px-8"
+                  onClick={handleStartPlexLogin}
+                  className="bg-gradient-to-r from-cyan to-pink hover:opacity-90 transition-opacity"
                 >
-                  <Settings className="w-5 h-5 mr-2" />
-                  Get Started
+                  <LogIn className="w-5 h-5 mr-2" />
+                  Sign In with Plex
                 </Button>
               </motion.div>
             </>
           ) : (
             <>
-              {/* Logo for main report view */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -559,7 +598,7 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
           )}
         </motion.div>
 
-        {!showWelcomeScreen && (
+        {!showLoginScreen && (
           <motion.div
             initial={{
               opacity: 0,
@@ -583,28 +622,30 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
           </motion.div>
         )}
 
-        <motion.div
-          initial={{
-            opacity: 0,
-          }}
-          animate={{
-            opacity: 1,
-          }}
-          transition={{
-            delay: 0.8,
-          }}
-          className="absolute top-4 right-4 flex items-center gap-2"
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowControls(!showControls)}
-            className="text-muted-foreground hover:text-foreground"
+        {!showLoginScreen && (
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            transition={{
+              delay: 0.8,
+            }}
+            className="absolute top-4 right-4 flex items-center gap-2"
           >
-            <Settings className="w-4 h-4 mr-2" />
-            Settings
-          </Button>
-        </motion.div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowControls(!showControls)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </Button>
+          </motion.div>
+        )}
 
         <AnimatePresence>
           {showControls && (
@@ -632,14 +673,12 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
                   <X className="w-4 h-4" />
                 </Button>
               </div>
-              {adminSettings.discreetMode ? (
-                <UsernameInput
-                  users={users}
-                  onSelectUser={handleUserSelect}
-                  passwordProtectionEnabled={adminSettings.passwordProtectUsers}
-                />
-              ) : (
+              {session?.isAdmin ? (
                 <UserSelector users={users} selectedUserId={selectedUserId} onSelectUser={handleUserSelect} />
+              ) : (
+                <div className="rounded-lg border border-border bg-card/60 p-3 text-sm text-muted-foreground">
+                  Signed in as <span className="font-medium text-foreground">{displayName}</span>
+                </div>
               )}
               <YearSelector selection={yearSelection} onSelectionChange={setYearSelection} oldestYear={oldestYear} />
               <div className="flex gap-2 pt-2">
@@ -647,8 +686,13 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
                   <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
-                <Button onClick={() => setShowAdminPanel(true)} variant="outline" size="sm">
-                  <Shield className="w-4 h-4" />
+                {session?.isAdmin && (
+                  <Button onClick={() => setShowAdminPanel(true)} variant="outline" size="sm">
+                    <Shield className="w-4 h-4" />
+                  </Button>
+                )}
+                <Button onClick={handleLogout} variant="outline" size="sm">
+                  <LogOut className="w-4 h-4" />
                 </Button>
                 {onDisconnect && (
                   <Button onClick={onDisconnect} variant="outline" size="sm">
@@ -833,7 +877,7 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
             <p className="text-sm text-muted-foreground/50">Powered by Tautulli</p>
           </motion.footer>
         </div>
-      ) : !showWelcomeScreen ? (
+      ) : !showLoginScreen ? (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center stat-card max-w-md mx-4">
             <p className="text-foreground text-lg font-semibold mb-2">No watch history found</p>
@@ -853,6 +897,7 @@ export const WrappedReport = ({ config, onDisconnect }: WrappedReportProps) => {
           setAdminSettings(getServerAdminSettings());
           setShowAdminPanel(false);
         }}
+        session={session}
         users={users}
         onSettingsChange={(settings) => {
           setAdminSettings(settings);

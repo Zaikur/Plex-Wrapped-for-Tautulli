@@ -1,159 +1,145 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Shield, Eye, EyeOff, Lock, RefreshCw, Copy, Check, X, Users, Settings2, AlertCircle, Edit2, Server, Key, Loader2, Image, Type, Upload, Trash2, Trophy } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Globe, Image, Key, Loader2, LogIn, RefreshCw, Server, Settings2, Shield, Trash2, Trophy, Upload, UserCog, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
 import { TautulliConfig, TautulliUser } from "@/types/tautulli";
 import { testConnection } from "@/lib/tautulli";
-import { AdminSettings, UserPassword } from "@/lib/adminStorage";
+import { AdminSettings } from "@/lib/adminStorage";
+import {
+  AuthSession,
+  PlexAuthConfig,
+  getPlexAuthConfig,
+  getServerAdminSettings,
+  getTautulliConfig,
+  loadAdminConfig,
+  savePlexUserMappingOverrides,
+  saveServerAdminSettings,
+  setTautulliConfig,
+  startPlexLogin,
+  uploadLogo,
+  deleteLogo,
+  checkLogoExists,
+  getLogoUrl,
+} from "@/lib/serverConfig";
 import { ImageExportDialog } from "./ImageExportDialog";
-import { isServerAdminPasswordSet, setServerAdminPassword, verifyServerAdminPassword, getServerAdminSettings, saveServerAdminSettings, getServerUserPasswords, generatePassword, setServerUserPassword, generatePasswordsForAllServerUsers, getTautulliConfig, setTautulliConfig, uploadLogo, deleteLogo, checkLogoExists, getLogoUrl } from "@/lib/serverConfig";
 import { toast } from "sonner";
-import { Globe } from "lucide-react";
-
 
 interface AdminPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  session: AuthSession | null;
   users: TautulliUser[];
   onSettingsChange: (settings: AdminSettings) => void;
   onTautulliConnect?: (config: TautulliConfig) => void;
 }
 
+const caseInsensitiveEquals = (left: string, right: string) => left.trim().toLowerCase() === right.trim().toLowerCase();
+
 export const AdminPanel = ({
   isOpen,
   onClose,
+  session,
   users,
   onSettingsChange,
-  onTautulliConnect
+  onTautulliConnect,
 }: AdminPanelProps) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isSettingPassword, setIsSettingPassword] = useState(false);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [settings, setSettings] = useState<AdminSettings>(getServerAdminSettings());
-  const [userPasswords, setUserPasswords] = useState<UserPassword[]>([]);
-  const [editingUserId, setEditingUserId] = useState<number | null>(null);
-  const [newPassword, setNewPassword] = useState("");
-  const [copiedUserId, setCopiedUserId] = useState<number | null>(null);
+  const [plexAuthConfig, setPlexAuthConfig] = useState<PlexAuthConfig>(getPlexAuthConfig());
+  const [mappingDrafts, setMappingDrafts] = useState<Record<number, string>>({});
+  const [isLoadingAdminConfig, setIsLoadingAdminConfig] = useState(false);
 
-  // Tautulli connection state
   const [tautulliUrl, setTautulliUrl] = useState("");
   const [tautulliApiKey, setTautulliApiKey] = useState("");
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [currentTautulliConfig, setCurrentTautulliConfig] = useState<TautulliConfig | undefined>(getTautulliConfig());
 
-  // Image Export state
   const [showImageExport, setShowImageExport] = useState(false);
 
-  // Logo state
   const [logoExists, setLogoExists] = useState(false);
-  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string>("");
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      const needsSetup = !isServerAdminPasswordSet();
-      setIsSettingPassword(needsSetup);
-      setIsAuthenticated(false);
-      setPassword("");
-      setConfirmPassword("");
-      loadUserPasswords();
-      const tautulliConfig = getTautulliConfig();
-      setCurrentTautulliConfig(tautulliConfig);
-      if (tautulliConfig) {
-        setTautulliUrl(tautulliConfig.url);
-        setTautulliApiKey(tautulliConfig.apiKey);
-      }
-      // Reload settings
+    if (!isOpen) {
+      return;
+    }
+
+    const initialize = async () => {
       setSettings(getServerAdminSettings());
-      // Check logo
-      checkLogoStatus();
-    }
-  }, [isOpen]);
+      setPlexAuthConfig(getPlexAuthConfig());
 
-  const checkLogoStatus = async () => {
-    const exists = await checkLogoExists();
-    setLogoExists(exists);
-    if (exists) {
-      setLogoPreviewUrl(getLogoUrl());
-    } else {
-      setLogoPreviewUrl("");
-    }
-  };
+      const exists = await checkLogoExists();
+      setLogoExists(exists);
+      setLogoPreviewUrl(exists ? getLogoUrl() : "");
 
-  const loadUserPasswords = () => {
-    setUserPasswords(getServerUserPasswords());
-  };
+      if (!session?.isAdmin) {
+        return;
+      }
 
-  const handleSetPassword = () => {
-    if (password.length < 4) {
-      toast.error("Password must be at least 4 characters");
-      return;
-    }
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
-    setServerAdminPassword(password);
-    setIsAuthenticated(true);
-    setIsSettingPassword(false);
-    toast.success("Admin password set successfully");
-  };
-
-  const handleLogin = () => {
-    if (verifyServerAdminPassword(password)) {
-      setIsAuthenticated(true);
-      setPassword("");
-    } else {
-      toast.error("Incorrect password");
-    }
-  };
-
-  const handleSettingChange = (key: keyof AdminSettings, value: boolean | string | number) => {
-    const newSettings = {
-      ...settings,
-      [key]: value
+      setIsLoadingAdminConfig(true);
+      try {
+        const adminConfig = await loadAdminConfig();
+        setSettings(adminConfig.adminSettings);
+        setPlexAuthConfig(adminConfig.plexAuth);
+        setCurrentTautulliConfig(adminConfig.tautulli);
+        setTautulliUrl(adminConfig.tautulli?.url || "");
+        setTautulliApiKey(adminConfig.tautulli?.apiKey || "");
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to load admin configuration");
+      } finally {
+        setIsLoadingAdminConfig(false);
+      }
     };
-    setSettings(newSettings);
-    saveServerAdminSettings(newSettings);
-    onSettingsChange(newSettings);
 
-    // When enabling password protection, generate passwords for all users
-    if (key === 'passwordProtectUsers' && value === true) {
-      const usersToGenerate = users.map(u => ({
-        userId: u.user_id,
-        username: u.username,
-        friendlyName: u.friendly_name
-      }));
-      generatePasswordsForAllServerUsers(usersToGenerate);
-      loadUserPasswords();
-      toast.success("Passwords generated for all users");
+    initialize();
+  }, [isOpen, session?.isAdmin]);
+
+  const handleStartPlexLogin = async () => {
+    try {
+      await startPlexLogin();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to start Plex sign-in");
+    }
+  };
+
+  const handleSettingChange = async (key: keyof AdminSettings, value: boolean | string | number) => {
+    const nextSettings = {
+      ...settings,
+      [key]: value,
+    };
+
+    setSettings(nextSettings);
+    onSettingsChange(nextSettings);
+
+    try {
+      await saveServerAdminSettings(nextSettings);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save admin settings");
     }
   };
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
-    // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
       toast.error("File size must be less than 5MB");
       return;
     }
 
-    // Validate file type
-    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
     if (!allowedTypes.includes(file.type)) {
       toast.error("Invalid file type. Only PNG, JPEG, WebP, and SVG are allowed.");
       return;
@@ -161,20 +147,19 @@ export const AdminPanel = ({
 
     setIsUploadingLogo(true);
     const result = await uploadLogo(file);
-    
     if (result.success) {
       toast.success("Logo uploaded successfully");
-      await checkLogoStatus();
-      // Enable custom logo if not already enabled
+      const exists = await checkLogoExists();
+      setLogoExists(exists);
+      setLogoPreviewUrl(exists ? getLogoUrl() : "");
       if (!settings.useCustomLogo) {
-        handleSettingChange('useCustomLogo', true);
+        await handleSettingChange("useCustomLogo", true);
       }
     } else {
       toast.error(result.error || "Failed to upload logo");
     }
-    
+
     setIsUploadingLogo(false);
-    // Reset input
     if (logoInputRef.current) {
       logoInputRef.current.value = "";
     }
@@ -186,42 +171,10 @@ export const AdminPanel = ({
       toast.success("Logo deleted successfully");
       setLogoExists(false);
       setLogoPreviewUrl("");
-      // Disable custom logo setting
-      handleSettingChange('useCustomLogo', false);
+      await handleSettingChange("useCustomLogo", false);
     } else {
       toast.error(result.error || "Failed to delete logo");
     }
-  };
-
-  const handleRegeneratePassword = (userId: number) => {
-    const user = users.find(u => u.user_id === userId);
-    if (!user) return;
-    const userPwd = userPasswords.find(p => p.userId === userId);
-    const newPass = generatePassword();
-    setServerUserPassword(userId, user.username, user.friendly_name, newPass, userPwd?.email);
-    loadUserPasswords();
-    toast.success("Password regenerated");
-  };
-
-  const handleSavePassword = (userId: number) => {
-    if (newPassword.length < 4) {
-      toast.error("Password must be at least 4 characters");
-      return;
-    }
-    const user = users.find(u => u.user_id === userId);
-    if (!user) return;
-    const userPwd = userPasswords.find(p => p.userId === userId);
-    setServerUserPassword(userId, user.username, user.friendly_name, newPassword, userPwd?.email);
-    loadUserPasswords();
-    setEditingUserId(null);
-    setNewPassword("");
-    toast.success("Password updated");
-  };
-
-  const handleCopyPassword = async (userId: number, password: string) => {
-    await navigator.clipboard.writeText(password);
-    setCopiedUserId(userId);
-    setTimeout(() => setCopiedUserId(null), 2000);
   };
 
   const handleTestTautulliConnection = async () => {
@@ -229,31 +182,488 @@ export const AdminPanel = ({
       toast.error("Please enter both URL and API key");
       return;
     }
+
     setIsTestingConnection(true);
     const config = {
       url: tautulliUrl.trim(),
-      apiKey: tautulliApiKey.trim()
+      apiKey: tautulliApiKey.trim(),
     };
-    const result = await testConnection(config);
-    if (result.success) {
-      setTautulliConfig(config);
+
+    try {
+      const result = await testConnection(config);
+      if (!result.success) {
+        toast.error(result.error || "Failed to connect. Check your URL and API key.", { duration: 8000 });
+        return;
+      }
+
+      await setTautulliConfig(config);
       setCurrentTautulliConfig(config);
       toast.success("Connected to Tautulli! Configuration saved.");
-      if (onTautulliConnect) {
-        onTautulliConnect(config);
-      }
-    } else {
-      toast.error(result.error || "Failed to connect. Check your URL and API key.", {
-        duration: 8000
-      });
+      onTautulliConnect?.(config);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save the Tautulli configuration");
+    } finally {
+      setIsTestingConnection(false);
     }
-    setIsTestingConnection(false);
   };
 
-  if (!isOpen) return null;
+  const getOverrideForUser = (user: TautulliUser) => {
+    return plexAuthConfig.userMappingOverrides.find((override) => override.tautulliUserId === user.user_id);
+  };
 
-  return <>
-      <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
+  const getDraftValue = (user: TautulliUser) => {
+    const draft = mappingDrafts[user.user_id];
+    if (draft !== undefined) {
+      return draft;
+    }
+    return getOverrideForUser(user)?.plexUsername || user.username;
+  };
+
+  const handleMappingDraftChange = (userId: number, value: string) => {
+    setMappingDrafts((current) => ({
+      ...current,
+      [userId]: value,
+    }));
+  };
+
+  const handleSaveMapping = async (user: TautulliUser) => {
+    const nextPlexUsername = getDraftValue(user).trim();
+    if (!nextPlexUsername) {
+      toast.error("Plex username cannot be empty");
+      return;
+    }
+
+    const otherOverrides = plexAuthConfig.userMappingOverrides.filter((override) => {
+      return override.tautulliUserId !== user.user_id && !caseInsensitiveEquals(override.plexUsername, nextPlexUsername);
+    });
+    const nextOverrides = caseInsensitiveEquals(nextPlexUsername, user.username)
+      ? otherOverrides
+      : [
+          ...otherOverrides,
+          {
+            plexUsername: nextPlexUsername,
+            tautulliUserId: user.user_id,
+            tautulliUsername: user.username,
+            friendlyName: user.friendly_name || user.username,
+          },
+        ];
+
+    try {
+      await savePlexUserMappingOverrides(nextOverrides);
+      setPlexAuthConfig((current) => ({
+        ...current,
+        userMappingOverrides: nextOverrides,
+      }));
+      toast.success(caseInsensitiveEquals(nextPlexUsername, user.username) ? "Override cleared" : "Override saved");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save Plex username override");
+    }
+  };
+
+  const handleResetMapping = async (user: TautulliUser) => {
+    try {
+      const nextOverrides = plexAuthConfig.userMappingOverrides.filter((override) => override.tautulliUserId !== user.user_id);
+      await savePlexUserMappingOverrides(nextOverrides);
+      setPlexAuthConfig((current) => ({
+        ...current,
+        userMappingOverrides: nextOverrides,
+      }));
+      setMappingDrafts((current) => ({
+        ...current,
+        [user.user_id]: user.username,
+      }));
+      toast.success("Override removed");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to remove Plex username override");
+    }
+  };
+
+  if (!isOpen) {
+    return null;
+  }
+
+  const renderAccessState = () => {
+    if (!session?.authenticated) {
+      return (
+        <div className="space-y-4 py-6 text-center">
+          <Shield className="w-12 h-12 text-primary mx-auto" />
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold">Admin access requires Plex sign-in</h3>
+            <p className="text-sm text-muted-foreground">
+              Sign in with the Plex account bound to this Plex Wrapped installation.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Close</Button>
+            <Button onClick={handleStartPlexLogin}>
+              <LogIn className="w-4 h-4 mr-2" />
+              Sign In with Plex
+            </Button>
+          </DialogFooter>
+        </div>
+      );
+    }
+
+    if (!session.isAdmin) {
+      return (
+        <div className="space-y-4 py-6 text-center">
+          <Shield className="w-12 h-12 text-primary mx-auto" />
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold">This Plex account is not the admin account</h3>
+            <p className="text-sm text-muted-foreground">
+              Signed in as {session.friendlyName || session.plexUsername}. Only the bound admin Plex account can open this panel.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Close</Button>
+          </DialogFooter>
+        </div>
+      );
+    }
+
+    if (isLoadingAdminConfig) {
+      return (
+        <div className="py-12 text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Loading admin configuration…</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6 py-4">
+        <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+          Admin account: <span className="font-medium text-foreground">{plexAuthConfig.adminPlexUsername || session.plexUsername}</span>
+        </div>
+
+        <Tabs defaultValue="connection" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="connection" className="flex items-center gap-2">
+              <Server className="w-4 h-4" />
+              <span className="hidden sm:inline">Connection</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Settings</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Users</span>
+            </TabsTrigger>
+            <TabsTrigger value="export" className="flex items-center gap-2">
+              <Image className="w-4 h-4" />
+              <span className="hidden sm:inline">Export</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="connection" className="space-y-4 mt-4">
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-muted/50 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Server className="w-5 h-5 text-primary" />
+                  <h3 className="font-semibold">Tautulli Connection</h3>
+                  {currentTautulliConfig && (
+                    <span className="text-xs bg-green-500/20 text-green-500 px-2 py-0.5 rounded-full">Connected</span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Configure the shared Tautulli connection used to generate reports.
+                </p>
+
+                <div className="space-y-2">
+                  <Label htmlFor="tautulli-url" className="flex items-center gap-2">
+                    <Server className="w-4 h-4 text-primary" />
+                    Tautulli URL
+                  </Label>
+                  <Input
+                    id="tautulli-url"
+                    type="url"
+                    placeholder="http://localhost:8181"
+                    value={tautulliUrl}
+                    onChange={(event) => setTautulliUrl(event.target.value)}
+                    className="bg-background/50"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="tautulli-api" className="flex items-center gap-2">
+                    <Key className="w-4 h-4 text-primary" />
+                    API Key
+                  </Label>
+                  <Input
+                    id="tautulli-api"
+                    type="password"
+                    placeholder="Your Tautulli API key"
+                    value={tautulliApiKey}
+                    onChange={(event) => setTautulliApiKey(event.target.value)}
+                    className="bg-background/50"
+                  />
+                  <p className="text-xs text-muted-foreground">Find this in Tautulli → Settings → Web Interface → API Key</p>
+                </div>
+
+                <Button onClick={handleTestTautulliConnection} disabled={isTestingConnection} className="w-full">
+                  {isTestingConnection ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Testing Connection...
+                    </>
+                  ) : currentTautulliConfig ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Test & Update Connection
+                    </>
+                  ) : (
+                    <>
+                      <Server className="mr-2 h-4 w-4" />
+                      Test & Save Connection
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="text-xs text-muted-foreground/70 p-3 bg-muted/30 rounded-lg space-y-1">
+                <p className="font-medium text-muted-foreground">Connection Tips:</p>
+                <p>Use an address reachable from this container or host.</p>
+                <p>If Tautulli runs in Docker too, use the service name or a shared network hostname.</p>
+                <p>HTTPS is recommended if the app is exposed externally.</p>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-4 mt-4">
+            <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="custom-logo" className="text-base flex items-center gap-2">
+                    <Image className="w-4 h-4" />
+                    Custom Logo
+                  </Label>
+                  <p className="text-sm text-muted-foreground">Display a custom logo on reports and export slides.</p>
+                </div>
+                <Switch
+                  id="custom-logo"
+                  checked={settings.useCustomLogo}
+                  onCheckedChange={(checked) => handleSettingChange("useCustomLogo", checked)}
+                  disabled={!logoExists}
+                />
+              </div>
+
+              <div className="pt-2 space-y-3">
+                {logoExists && logoPreviewUrl && (
+                  <div className="flex items-center justify-center p-4 bg-background/50 rounded-lg border border-border">
+                    <img
+                      src={logoPreviewUrl}
+                      alt="Custom logo preview"
+                      style={{ maxHeight: `${settings.logoMaxHeight}px`, maxWidth: "100%", objectFit: "contain" }}
+                    />
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={isUploadingLogo}
+                  >
+                    {isUploadingLogo ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        {logoExists ? "Replace Logo" : "Upload Logo"}
+                      </>
+                    )}
+                  </Button>
+                  {logoExists && (
+                    <Button variant="outline" onClick={handleDeleteLogo} className="text-destructive hover:text-destructive">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {logoExists && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Logo Max Height</Label>
+                      <span className="text-sm text-muted-foreground">{settings.logoMaxHeight}px</span>
+                    </div>
+                    <Slider
+                      value={[settings.logoMaxHeight]}
+                      onValueChange={([value]) => handleSettingChange("logoMaxHeight", value)}
+                      min={40}
+                      max={200}
+                      step={10}
+                      className="w-full"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="custom-title" className="text-base">Custom Title</Label>
+                  <p className="text-sm text-muted-foreground">Use a custom title instead of "Plex Wrapped".</p>
+                </div>
+                <Switch id="custom-title" checked={settings.useCustomTitle} onCheckedChange={(checked) => handleSettingChange("useCustomTitle", checked)} />
+              </div>
+              {settings.useCustomTitle && (
+                <Input
+                  value={settings.customTitle}
+                  onChange={(event) => handleSettingChange("customTitle", event.target.value)}
+                  placeholder="Plex Wrapped"
+                  className="bg-background/50"
+                />
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+              <div className="space-y-0.5">
+                <Label htmlFor="normalize-anomalies" className="text-base">Normalize Tautulli Anomalies</Label>
+                <p className="text-sm text-muted-foreground">Cap impossible watch durations to the actual media runtime.</p>
+              </div>
+              <Switch
+                id="normalize-anomalies"
+                checked={settings.normalizeTautulliAnomalies}
+                onCheckedChange={(checked) => handleSettingChange("normalizeTautulliAnomalies", checked)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+              <div className="space-y-0.5">
+                <Label htmlFor="enable-geolocation" className="text-base flex items-center gap-2">
+                  <Globe className="w-4 h-4" />
+                  Streaming Locations
+                </Label>
+                <p className="text-sm text-muted-foreground">Show a map of where streams originated from.</p>
+              </div>
+              <Switch id="enable-geolocation" checked={settings.enableGeolocation} onCheckedChange={(checked) => handleSettingChange("enableGeolocation", checked)} />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+              <div className="space-y-0.5">
+                <Label htmlFor="show-leaderboard" className="text-base flex items-center gap-2">
+                  <Trophy className="w-4 h-4" />
+                  Show Leaderboard
+                </Label>
+                <p className="text-sm text-muted-foreground">Display the user leaderboard in All Users reports.</p>
+              </div>
+              <Switch id="show-leaderboard" checked={settings.showLeaderboard} onCheckedChange={(checked) => handleSettingChange("showLeaderboard", checked)} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-4 mt-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+              Plex usernames map to Tautulli usernames automatically. Use overrides here only if a user’s Plex account name does not match their Tautulli username.
+            </div>
+
+            {users.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <UserCog className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No users found. Connect to Tautulli first to manage user mappings.</p>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Tautulli Username</TableHead>
+                      <TableHead>Plex Username</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead className="w-[160px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => {
+                      const override = getOverrideForUser(user);
+                      const draftValue = getDraftValue(user);
+
+                      return (
+                        <TableRow key={user.user_id}>
+                          <TableCell className="font-medium">{user.friendly_name || user.username}</TableCell>
+                          <TableCell className="text-muted-foreground">{user.username}</TableCell>
+                          <TableCell>
+                            <Input
+                              value={draftValue}
+                              onChange={(event) => handleMappingDraftChange(user.user_id, event.target.value)}
+                              className="h-8 bg-background/50"
+                              placeholder={user.username}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs ${override ? "bg-amber-500/15 text-amber-500" : "bg-green-500/15 text-green-500"}`}>
+                              {override ? "Override" : "Auto"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" variant="outline" onClick={() => handleSaveMapping(user)}>
+                                Save
+                              </Button>
+                              {override && (
+                                <Button size="sm" variant="ghost" onClick={() => handleResetMapping(user)}>
+                                  Reset
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="export" className="space-y-4 mt-4">
+            <div className="p-4 rounded-lg bg-muted/50 space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Image className="w-5 h-5 text-primary" />
+                <h3 className="font-semibold">Export as Images</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">Generate PNG exports for one or more Plex Wrapped reports.</p>
+
+              {!currentTautulliConfig ? (
+                <div className="text-center py-4 text-sm text-muted-foreground">Connect to Tautulli first to export images.</div>
+              ) : users.length === 0 ? (
+                <div className="text-center py-4 text-sm text-muted-foreground">No users found.</div>
+              ) : (
+                <Button onClick={() => setShowImageExport(true)} className="w-full">
+                  <Image className="w-4 h-4 mr-2" />
+                  Select Users & Export Images
+                </Button>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -261,488 +671,22 @@ export const AdminPanel = ({
               Admin Panel
             </DialogTitle>
             <DialogDescription>
-              Configure admin settings, Tautulli connection, and user access
+              Configure Plex Wrapped, manage Tautulli connectivity, and review Plex-to-Tautulli user mappings.
             </DialogDescription>
           </DialogHeader>
 
-          <AnimatePresence mode="wait">
-            {isSettingPassword ? <motion.div key="setup" initial={{
-            opacity: 0,
-            y: 10
-          }} animate={{
-            opacity: 1,
-            y: 0
-          }} exit={{
-            opacity: 0,
-            y: -10
-          }} className="space-y-4 py-4">
-                <div className="text-center mb-6">
-                  <Lock className="w-12 h-12 text-primary mx-auto mb-2" />
-                  <h3 className="text-lg font-semibold">Set Admin Password</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Create a password to protect the admin panel
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">Password</Label>
-                  <div className="relative">
-                    <Input id="new-password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" />
-                    <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full" onClick={() => setShowPassword(!showPassword)}>
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm Password</Label>
-                  <Input id="confirm-password" type={showPassword ? "text" : "password"} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirm password" onKeyDown={e => e.key === 'Enter' && handleSetPassword()} />
-                </div>
-
-                <DialogFooter>
-                  <Button variant="outline" onClick={onClose}>Cancel</Button>
-                  <Button onClick={handleSetPassword}>Set Password</Button>
-                </DialogFooter>
-              </motion.div> : !isAuthenticated ? <motion.div key="login" initial={{
-            opacity: 0,
-            y: 10
-          }} animate={{
-            opacity: 1,
-            y: 0
-          }} exit={{
-            opacity: 0,
-            y: -10
-          }} className="space-y-4 py-4">
-                <div className="text-center mb-6">
-                  <Lock className="w-12 h-12 text-primary mx-auto mb-2" />
-                  <h3 className="text-lg font-semibold">Enter Admin Password</h3>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <div className="relative">
-                    <Input id="login-password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" onKeyDown={e => e.key === 'Enter' && handleLogin()} />
-                    <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full" onClick={() => setShowPassword(!showPassword)}>
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </div>
-
-                <DialogFooter>
-                  <Button variant="outline" onClick={onClose}>Cancel</Button>
-                  <Button onClick={handleLogin}>Login</Button>
-                </DialogFooter>
-              </motion.div> : <motion.div key="settings" initial={{
-            opacity: 0,
-            y: 10
-          }} animate={{
-            opacity: 1,
-            y: 0
-          }} exit={{
-            opacity: 0,
-            y: -10
-          }} className="space-y-6 py-4">
-                <Tabs defaultValue="connection" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="connection" className="flex items-center gap-2">
-                      <Server className="w-4 h-4" />
-                      <span className="hidden sm:inline">Connection</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="settings" className="flex items-center gap-2">
-                      <Settings2 className="w-4 h-4" />
-                      <span className="hidden sm:inline">Settings</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="users" className="flex items-center gap-2">
-                      <Users className="w-4 h-4" />
-                      <span className="hidden sm:inline">Users</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="export" className="flex items-center gap-2">
-                      <Image className="w-4 h-4" />
-                      <span className="hidden sm:inline">Export</span>
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="connection" className="space-y-4 mt-4">
-                    <div className="space-y-4">
-                      <div className="p-4 rounded-lg bg-muted/50 space-y-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Server className="w-5 h-5 text-primary" />
-                          <h3 className="font-semibold">Tautulli Connection</h3>
-                          {currentTautulliConfig && <span className="text-xs bg-green-500/20 text-green-500 px-2 py-0.5 rounded-full">
-                              Connected
-                            </span>}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Configure your Tautulli connection here. This will be used for all users accessing the app.
-                        </p>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="tautulli-url" className="flex items-center gap-2">
-                            <Server className="w-4 h-4 text-primary" />
-                            Tautulli URL
-                          </Label>
-                          <Input id="tautulli-url" type="url" placeholder="http://localhost:8181" value={tautulliUrl} onChange={e => setTautulliUrl(e.target.value)} className="bg-background/50" />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="tautulli-api" className="flex items-center gap-2">
-                            <Key className="w-4 h-4 text-primary" />
-                            API Key
-                          </Label>
-                          <Input id="tautulli-api" type="password" placeholder="Your Tautulli API key" value={tautulliApiKey} onChange={e => setTautulliApiKey(e.target.value)} className="bg-background/50" />
-                          <p className="text-xs text-muted-foreground">
-                            Find this in Tautulli → Settings → Web Interface → API Key
-                          </p>
-                        </div>
-
-                        <Button onClick={handleTestTautulliConnection} disabled={isTestingConnection} className="w-full">
-                          {isTestingConnection ? <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Testing Connection...
-                            </> : currentTautulliConfig ? <>
-                              <RefreshCw className="mr-2 h-4 w-4" />
-                              Update Connection
-                            </> : <>
-                              <Server className="mr-2 h-4 w-4" />
-                              Test & Save Connection
-                            </>}
-                        </Button>
-                      </div>
-
-                      <div className="text-xs text-muted-foreground/70 p-3 bg-muted/30 rounded-lg space-y-1">
-                        <p className="font-medium text-muted-foreground">💡 Connection Tips:</p>
-                        <p>• Use the internal IP or hostname accessible from this server</p>
-                        <p>• For Docker, use the container name or host network IP</p>
-                        <p>• HTTPS is recommended for external access</p>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="settings" className="space-y-4 mt-4">
-                    {/* Custom Logo Setting */}
-                    <div className="p-4 rounded-lg bg-muted/50 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="custom-logo" className="text-base flex items-center gap-2">
-                            <Image className="w-4 h-4" />
-                            Custom Logo
-                          </Label>
-                          <p className="text-sm text-muted-foreground">
-                            Display a custom logo on reports and exports
-                          </p>
-                        </div>
-                        <Switch 
-                          id="custom-logo" 
-                          checked={settings.useCustomLogo} 
-                          onCheckedChange={checked => handleSettingChange('useCustomLogo', checked)}
-                          disabled={!logoExists}
-                        />
-                      </div>
-                      
-                      <div className="pt-2 space-y-3">
-                        {/* Logo Preview */}
-                        {logoExists && logoPreviewUrl && (
-                          <div className="flex items-center justify-center p-4 bg-background/50 rounded-lg border border-border">
-                            <img 
-                              src={logoPreviewUrl} 
-                              alt="Custom Logo Preview" 
-                              style={{ maxHeight: `${settings.logoMaxHeight}px`, maxWidth: '100%', objectFit: 'contain' }}
-                            />
-                          </div>
-                        )}
-                        
-                        {/* Upload/Delete Buttons */}
-                        <div className="flex gap-2">
-                          <input
-                            ref={logoInputRef}
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                            onChange={handleLogoUpload}
-                            className="hidden"
-                            id="logo-upload"
-                          />
-                          <Button
-                            variant="outline"
-                            className="flex-1"
-                            onClick={() => logoInputRef.current?.click()}
-                            disabled={isUploadingLogo}
-                          >
-                            {isUploadingLogo ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Uploading...
-                              </>
-                            ) : (
-                              <>
-                                <Upload className="w-4 h-4 mr-2" />
-                                {logoExists ? 'Replace Logo' : 'Upload Logo'}
-                              </>
-                            )}
-                          </Button>
-                          {logoExists && (
-                            <Button
-                              variant="outline"
-                              onClick={handleDeleteLogo}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                        
-                        {/* Logo Size Slider */}
-                        {logoExists && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-sm">Logo Max Height</Label>
-                              <span className="text-sm text-muted-foreground">{settings.logoMaxHeight}px</span>
-                            </div>
-                            <Slider
-                              value={[settings.logoMaxHeight]}
-                              onValueChange={([value]) => handleSettingChange('logoMaxHeight', value)}
-                              min={40}
-                              max={200}
-                              step={10}
-                              className="w-full"
-                            />
-                          </div>
-                        )}
-                        
-                        <p className="text-xs text-muted-foreground">
-                          Supported formats: PNG, JPEG, WebP, SVG (max 5MB)
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Custom Title Setting */}
-                    <div className="p-4 rounded-lg bg-muted/50 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="custom-title" className="text-base">
-                            Custom Title
-                          </Label>
-                          <p className="text-sm text-muted-foreground">
-                            Use a custom title instead of "Plex Wrapped"
-                          </p>
-                        </div>
-                        <Switch 
-                          id="custom-title" 
-                          checked={settings.useCustomTitle} 
-                          onCheckedChange={checked => handleSettingChange('useCustomTitle', checked)} 
-                        />
-                      </div>
-                      {settings.useCustomTitle && (
-                        <div className="pt-2">
-                          <Input
-                            value={settings.customTitle}
-                            onChange={e => handleSettingChange('customTitle', e.target.value)}
-                            placeholder="Plex Wrapped"
-                            className="bg-background/50"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="discreet-mode" className="text-base">Discreet Mode</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Replace user dropdown with a username input field
-                        </p>
-                      </div>
-                      <Switch id="discreet-mode" checked={settings.discreetMode} onCheckedChange={checked => handleSettingChange('discreetMode', checked)} />
-                    </div>
-
-                    {/* Allow All Users in Discreet Mode - only show when discreet mode is enabled */}
-                    {settings.discreetMode && (
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 ml-4 border-l-2 border-primary/30">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="allow-all-users-discreet" className="text-base">Allow 'All Users' in Discreet Mode</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Auto-load the "All Users" report when visiting the site
-                          </p>
-                        </div>
-                        <Switch 
-                          id="allow-all-users-discreet" 
-                          checked={settings.allowAllUsersInDiscreetMode} 
-                          onCheckedChange={checked => handleSettingChange('allowAllUsersInDiscreetMode', checked)} 
-                        />
-                      </div>
-                    )}
-                  
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="password-protect" className="text-base">Password Protect Users</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Require password to view individual user stats
-                        </p>
-                      </div>
-                      <Switch id="password-protect" checked={settings.passwordProtectUsers} onCheckedChange={checked => handleSettingChange('passwordProtectUsers', checked)} />
-                    </div>
-                  
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="normalize-anomalies" className="text-base">Normalize Tautulli Anomalies</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Fix duration anomalies by capping watch times to actual runtime
-                        </p>
-                      </div>
-                      <Switch 
-                        id="normalize-anomalies" 
-                        checked={settings.normalizeTautulliAnomalies} 
-                        onCheckedChange={checked => handleSettingChange('normalizeTautulliAnomalies', checked)} 
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="enable-geolocation" className="text-base flex items-center gap-2">
-                          <Globe className="w-4 h-4" />
-                          Streaming Locations
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Show a map of where streams originated from (requires IP geolocation)
-                        </p>
-                      </div>
-                      <Switch 
-                        id="enable-geolocation" 
-                        checked={settings.enableGeolocation} 
-                        onCheckedChange={checked => handleSettingChange('enableGeolocation', checked)} 
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="show-leaderboard" className="text-base flex items-center gap-2">
-                          <Trophy className="w-4 h-4" />
-                          Show Leaderboard
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Display the user leaderboard in "All Users" reports
-                        </p>
-                      </div>
-                      <Switch 
-                        id="show-leaderboard" 
-                        checked={settings.showLeaderboard} 
-                        onCheckedChange={checked => handleSettingChange('showLeaderboard', checked)} 
-                      />
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="users" className="space-y-4 mt-4">
-                    {!settings.passwordProtectUsers ? <div className="text-center py-8 text-muted-foreground">
-                        <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p>Enable "Password Protect Users" in Settings to manage user passwords</p>
-                      </div> : users.length === 0 ? <div className="text-center py-8 text-muted-foreground">
-                        <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p>No users found. Connect to Tautulli first to see users.</p>
-                      </div> : <div className="border rounded-lg overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>User</TableHead>
-                              <TableHead>Username</TableHead>
-                              <TableHead>Password</TableHead>
-                              <TableHead className="w-[100px]">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {users.map(user => {
-                        const userPwd = userPasswords.find(p => p.userId === user.user_id);
-                        const isEditingPwd = editingUserId === user.user_id;
-                        return <TableRow key={user.user_id}>
-                                  <TableCell className="font-medium">
-                                    {user.friendly_name || user.username}
-                                  </TableCell>
-                                  <TableCell className="text-muted-foreground">
-                                    {user.username}
-                                  </TableCell>
-                                  <TableCell>
-                                    {isEditingPwd ? <div className="flex items-center gap-2">
-                                        <Input value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New password" className="h-8 w-28" />
-                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleSavePassword(user.user_id)}>
-                                          <Check className="w-4 h-4 text-green-500" />
-                                        </Button>
-                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => {
-                                setEditingUserId(null);
-                                setNewPassword("");
-                              }}>
-                                          <X className="w-4 h-4 text-destructive" />
-                                        </Button>
-                                      </div> : <div className="flex items-center gap-2">
-                                        <code className="bg-muted px-2 py-1 rounded text-sm">
-                                          {userPwd?.password || 'Not set'}
-                                        </code>
-                                        {userPwd && <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleCopyPassword(user.user_id, userPwd.password)}>
-                                            {copiedUserId === user.user_id ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                                          </Button>}
-                                      </div>}
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-1">
-                                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => {
-                                setEditingUserId(user.user_id);
-                                setNewPassword(userPwd?.password || "");
-                              }} title="Edit password">
-                                        <Eye className="w-4 h-4" />
-                                      </Button>
-                                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleRegeneratePassword(user.user_id)} title="Generate new password">
-                                        <RefreshCw className="w-4 h-4" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>;
-                      })}
-                          </TableBody>
-                        </Table>
-                      </div>}
-                  </TabsContent>
-
-                  <TabsContent value="export" className="space-y-4 mt-4">
-                    <div className="p-4 rounded-lg bg-muted/50 space-y-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Image className="w-5 h-5 text-primary" />
-                        <h3 className="font-semibold">Export as Images</h3>
-                      </div>
-                      <p className="text-sm text-muted-foreground">Generate beautiful PNG images of Plex Wrapped reports for selected users.</p>
-                      
-                      {!currentTautulliConfig ? <div className="text-center py-4">
-                          <AlertCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground">
-                            Connect to Tautulli first to export images
-                          </p>
-                        </div> : users.length === 0 ? <div className="text-center py-4">
-                          <AlertCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground">
-                            No users found
-                          </p>
-                        </div> : <Button onClick={() => setShowImageExport(true)} className="w-full">
-                          <Image className="w-4 h-4 mr-2" />
-                          Select Users & Export Images
-                        </Button>}
-                    </div>
-
-                    <div className="text-xs text-muted-foreground/70 p-3 bg-muted/30 rounded-lg space-y-1">
-                      <p className="font-medium text-muted-foreground">🖼️ Export Info:</p>
-                      <p>• High-quality PNG images with all charts and visuals</p>
-                      <p>• Single user exports as PNG, multiple users as ZIP</p>
-                      <p>• Perfect for viewing on phones, tablets, or sharing</p>
-                      {settings.useCustomLogo && logoExists && (
-                        <p>• Your custom logo will appear on the first and last slides</p>
-                      )}
-                    </div>
-                  </TabsContent>
-                </Tabs>
-
-                <DialogFooter>
-                  <Button variant="outline" onClick={onClose}>Close</Button>
-                </DialogFooter>
-              </motion.div>}
-          </AnimatePresence>
+          {renderAccessState()}
         </DialogContent>
       </Dialog>
 
-      {/* Image Export Dialog */}
-      {currentTautulliConfig && <ImageExportDialog isOpen={showImageExport} onClose={() => setShowImageExport(false)} users={users} config={currentTautulliConfig} />}
-    </>;
+      {currentTautulliConfig && (
+        <ImageExportDialog
+          isOpen={showImageExport}
+          onClose={() => setShowImageExport(false)}
+          users={users}
+          config={currentTautulliConfig}
+        />
+      )}
+    </>
+  );
 };

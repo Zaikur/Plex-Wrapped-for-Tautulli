@@ -70,6 +70,8 @@ export const WrappedReport = ({ publicConfig, session, onRefresh }: WrappedRepor
   const [users, setUsers] = useState<ApiUser[]>([]);
   // null = everyone. Signed-in viewers start on their own stats.
   const [selectedUserId, setSelectedUserId] = useState<number | null>(viewer?.userId ?? null);
+  const [previewAsViewer, setPreviewAsViewer] = useState(false);
+  const sharedView = selectedUserId === null && (!session.isAdmin || previewAsViewer);
   const [yearSelection, setYearSelection] = useState<YearSelection>({
     type: "year",
     year: getDefaultYear(adminSettings.currentYearFrom),
@@ -104,8 +106,8 @@ export const WrappedReport = ({ publicConfig, session, onRefresh }: WrappedRepor
   const oldestYear = report?.oldestYear ?? undefined;
   const period = toPeriod(yearSelection);
 
-  // Everyone's stats can be shown to privileged viewers, or to anyone when "All Users" is allowed
-  const allowEveryone = canViewAnyone;
+  // Admin access and preview remain available when sharing is disabled.
+  const allowEveryone = session.isAdmin || (Boolean(viewer) && adminSettings.allowAllUsers);
   const canLoad = selectedUserId !== null || allowEveryone;
 
   const getTitle = () => getDisplayTitle(adminSettings);
@@ -121,7 +123,7 @@ export const WrappedReport = ({ publicConfig, session, onRefresh }: WrappedRepor
   const loadStats = useCallback(async () => {
     if (!canLoad) return;
     const requestId = ++requestIdRef.current;
-    const query = { user: selectedUserId ?? ("all" as const), period };
+    const query = { user: selectedUserId ?? ("all" as const), period, shared: sharedView };
 
     setIsLoading(true);
     setGeoLocations([]);
@@ -135,7 +137,7 @@ export const WrappedReport = ({ publicConfig, session, onRefresh }: WrappedRepor
       setReport(result);
       setIsLoading(false);
 
-      if (adminSettings.enableGeolocation) {
+      if (adminSettings.enableGeolocation && !sharedView) {
         setGeoLoading(true);
         try {
           const geo = await api.reportLocations(query);
@@ -168,7 +170,7 @@ export const WrappedReport = ({ publicConfig, session, onRefresh }: WrappedRepor
       toast.error(error instanceof ApiError ? error.message : "Failed to load watch history");
       console.error(error);
     }
-  }, [canLoad, selectedUserId, period, adminSettings.enableGeolocation, onRefresh]);
+  }, [canLoad, selectedUserId, period, sharedView, adminSettings.enableGeolocation, onRefresh]);
 
   useEffect(() => {
     loadStats();
@@ -348,28 +350,43 @@ export const WrappedReport = ({ publicConfig, session, onRefresh }: WrappedRepor
   // Show the welcome screen until a report is available.
   const showWelcomeScreen = !canLoad && !stats;
 
-  // Admins can switch between their own and combined reports.
+  // Viewers can switch between their own and combined reports.
   const myUserId = viewer?.userId ?? null;
   const showScopeToggle = myUserId !== null && allowEveryone;
 
   const renderScopeToggle = (className: string) => (
-    <div className={`flex rounded-lg border border-border p-1 bg-card ${className}`}>
-      <Button
-        size="sm"
-        variant={selectedUserId !== null && selectedUserId === myUserId ? "default" : "ghost"}
-        className="flex-1"
-        onClick={() => setSelectedUserId(myUserId)}
-      >
-        My stats
-      </Button>
-      <Button
-        size="sm"
-        variant={selectedUserId === null ? "default" : "ghost"}
-        className="flex-1"
-        onClick={() => setSelectedUserId(null)}
-      >
-        Everyone
-      </Button>
+    <div className={`space-y-2 ${className}`}>
+      <div className="flex rounded-lg border border-border p-1 bg-card w-full">
+        <Button
+          size="sm"
+          variant={selectedUserId !== null && selectedUserId === myUserId ? "default" : "ghost"}
+          className="flex-1"
+          onClick={() => setSelectedUserId(myUserId)}
+        >
+          My stats
+        </Button>
+        <Button
+          size="sm"
+          variant={selectedUserId === null ? "default" : "ghost"}
+          className="flex-1"
+          onClick={() => setSelectedUserId(null)}
+        >
+          Everyone
+        </Button>
+      </div>
+      {selectedUserId === null && session.isAdmin && (
+        <Button
+          variant="outline"
+          size="sm"
+          role="switch"
+          aria-checked={previewAsViewer}
+          onClick={() => setPreviewAsViewer(value => !value)}
+          className="w-full"
+        >
+          Preview as viewer: {previewAsViewer ? "On" : "Off"}
+        </Button>
+      )}
+      {sharedView && <p className="text-xs text-muted-foreground">Shared totals · Personal details and locations are hidden</p>}
     </div>
   );
 
@@ -588,8 +605,8 @@ export const WrappedReport = ({ publicConfig, session, onRefresh }: WrappedRepor
             {canViewAnyone ? (
               <UserSelector users={users} selectedUserId={selectedUserId} onSelectUser={handleUserSelect} />
             ) : null}
-            {/* The user picker above already offers "All Users" to those who can view anyone */}
-            {showScopeToggle && !canViewAnyone && renderScopeToggle("w-full")}
+            {/* The scope controls also let admins preview the shared combined report. */}
+            {showScopeToggle && renderScopeToggle("w-full")}
             <YearSelector selection={yearSelection} onSelectionChange={setYearSelection} oldestYear={oldestYear} />
             <div className="flex gap-2 pt-2">
               <Button onClick={loadStats} disabled={isLoading || !canLoad} size="sm" className="flex-1">

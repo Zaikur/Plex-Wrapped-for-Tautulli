@@ -26,7 +26,7 @@ import { getServerInfo, normalizeTautulliUrl, tautulliImage, TautulliError } fro
 import { clearHistory, ensureUsers, getUsers, hasHistory, loadHistory } from "./historyStore";
 import { clearMetadataCache, loadMetadataCache } from "./metadataCache";
 import { clearGeoCache, loadGeoCache } from "./geo";
-import { buildReport, buildReportLocations, clearReportMemo, resolveTimeZone } from "./report";
+import { buildReport, buildReportLocations, clearReportMemo, resolveTimeZone, sharedReport } from "./report";
 import { getCacheStatus, maybeRefresh, runPipeline, scheduleNightly, startScheduler } from "./scheduler";
 import { buildAuthUrl, checkPin, createPin, getAccount, getServerAccess, PlexError } from "./plex";
 import { getVersionInfo, startVersionChecks } from "./version";
@@ -240,7 +240,7 @@ const resolveTarget = (req: Request, res: Response): number | null | undefined =
     return session.viewer.userId;
   }
   if (param === "all") {
-    if (session.canViewAnyone) return null;
+    if (session.isAdmin || (session.viewer && settings.allowAllUsers)) return null;
     fail(res, 403, "Viewing everyone's stats is disabled");
     return undefined;
   }
@@ -276,10 +276,15 @@ const reportParams = (req: Request, res: Response) => {
   return { target, period, tz: resolveTimeZone(req.query.tz) };
 };
 
+// Preview uses the same filtering as a regular viewer, without changing admin permissions.
+const needsSharedReport = (req: Request, target: number | null) =>
+  target === null && (!isAdmin(req) || req.query.shared === "1");
+
 api.get("/report", async (req, res) => {
   const params = reportParams(req, res);
   if (!params) return;
-  res.type("application/json").send(await buildReport(params.target, params.period, params.tz));
+  const report = await buildReport(params.target, params.period, params.tz);
+  res.type("application/json").send(needsSharedReport(req, params.target) ? JSON.stringify(sharedReport(report)) : report);
   maybeRefresh();
 });
 
@@ -287,6 +292,7 @@ api.get("/report/locations", async (req, res) => {
   if (!getSettings().enableGeolocation) return fail(res, 404, "Streaming locations are disabled");
   const params = reportParams(req, res);
   if (!params) return;
+  if (needsSharedReport(req, params.target)) return res.json({ locations: [], totalIPs: 0 });
   const includeNames = getSessionInfo(req).canViewAnyone;
   res.json(await buildReportLocations(params.target, params.period, params.tz, includeNames));
 });

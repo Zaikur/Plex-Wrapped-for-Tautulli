@@ -53,10 +53,11 @@ export const viewerTimeZone = () => {
 export interface ReportQuery {
   user: number | "all" | "me";
   period: ReportPeriod;
+  shared?: boolean;
 }
 
-const reportQuery = ({ user, period }: ReportQuery) =>
-  new URLSearchParams({ user: String(user), period, tz: viewerTimeZone() }).toString();
+const reportQuery = ({ user, period, shared }: ReportQuery) =>
+  new URLSearchParams({ user: String(user), period, tz: viewerTimeZone(), ...(shared ? { shared: "1" } : {}) }).toString();
 
 // Format the peak-concurrency time in the viewer's locale (the server sends a timestamp)
 const localizeReport = (report: ReportResponse): ReportResponse => {

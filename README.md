@@ -44,8 +44,9 @@ docker-compose up -d
 
 ### Authentication
 
-- Admin access is bound to a single Plex account. Only the admin can view other users or combined reports.
-- Regular users sign in with Plex and can only view their own report.
+- Admin access is bound to a single Plex account. Only the admin can view other users' individual reports.
+- Turn on **Share server stats with users** in Admin → Settings to let signed-in users switch between My stats and Everyone. Sharing is off by default. The shared combined report hides the leaderboard, locations, and individual viewing milestones and timestamps.
+- Admins keep the full combined report. In Everyone, turn on **Preview as viewer** to see the same filtered report regular users receive.
 - Plex users match Tautulli users by username, ignoring case. If the names differ, add an override in the Admin Panel's Users tab.
 - Existing admin ownership, Plex client identifier and user mapping overrides are migrated automatically. Existing sessions require signing in again after upgrading.
 

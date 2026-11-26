@@ -9,7 +9,7 @@ export type AudioSource = "default" | "custom";
 
 export interface AdminSettings {
   accessMode: AccessMode;
-  allowAllUsers: boolean; // Discreet & Plex Login: allow viewing everyone's combined stats
+  allowAllUsers: boolean; // Allow signed-in viewers to see the filtered combined report
   passwordProtectUsers: boolean; // Discreet: require a per-user password
   normalizeTautulliAnomalies: boolean;
   useCustomTitle: boolean;

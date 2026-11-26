@@ -17,7 +17,7 @@ global.fetch = async (input, init = {}) => {
         { user_id: 102, username: 'TautulliBob', friendly_name: 'Bob' },
       ],
       get_server_info: { pms_identifier: 'test-server', pms_name: 'Test Server' },
-      get_history: { data: [] },
+      get_history: { data: JSON.parse(process.env.TEST_HISTORY || '[]') },
     };
     return json({ response: { result: 'success', data: commands[url.searchParams.get('cmd')] } });
   }

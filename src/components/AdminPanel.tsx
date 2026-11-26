@@ -472,7 +472,19 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                   <TabsContent value="settings" className="space-y-4 mt-4">
                     <div className="p-4 rounded-lg bg-muted/50 space-y-2">
                       <Label className="text-base">Plex Authentication</Label>
-                      <p className="text-sm text-muted-foreground">Admin account: {adminPlexUsername}. Viewers sign in with Plex and can only view their own report. Use the Users tab to map different Plex and Tautulli usernames.</p>
+                      <p className="text-sm text-muted-foreground">Admin account: {adminPlexUsername}. Viewers sign in with Plex to see their own report. Only admins can see other users' details. Use the Users tab to map different Plex and Tautulli usernames.</p>
+                      <div className="flex items-center justify-between gap-4 pt-3">
+                        <div className="space-y-1">
+                          <Label htmlFor="share-server-stats" className="text-base">Share server stats with users</Label>
+                          <p id="share-server-stats-description" className="text-sm text-muted-foreground">Let signed-in users see Everyone totals with personal details, the leaderboard, and locations removed. Your full admin report and viewer preview remain available when this is off.</p>
+                        </div>
+                        <Switch
+                          id="share-server-stats"
+                          aria-describedby="share-server-stats-description"
+                          checked={settings.allowAllUsers}
+                          onCheckedChange={checked => handleSettingChange('allowAllUsers', checked)}
+                        />
+                      </div>
                     </div>
 
                     {/* Theme: each option is drawn in its own theme (data-theme) */}

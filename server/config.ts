@@ -65,7 +65,7 @@ export const normalizeSettings = (raw: any): AdminSettings => {
   const height = Number(s.logoMaxHeight);
   return {
     accessMode: "plex",
-    allowAllUsers: false,
+    allowAllUsers: s.allowAllUsers === true,
     passwordProtectUsers: false,
     normalizeTautulliAnomalies: Boolean(s.normalizeTautulliAnomalies),
     useCustomTitle: Boolean(s.useCustomTitle),

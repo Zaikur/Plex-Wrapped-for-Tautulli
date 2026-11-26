@@ -350,5 +350,25 @@ export const buildReport = async (userId: number | null, period: string, tz: str
   return `${report.slice(0, -1)},${extras}}`;
 };
 
+/** Filter after reading the cache so a shared response never changes the admin's report. */
+export const sharedReport = (json: string): ReportResponse => {
+  const report: ReportResponse = JSON.parse(json);
+  return {
+    ...report,
+    user: null,
+    leaderboard: [],
+    rank: null,
+    stats: {
+      ...report.stats,
+      firstWatch: null,
+      lastWatch: null,
+      longestBinge: null,
+      mostBingedDay: null,
+      peakConcurrentStreams: null,
+      streamingLocations: [],
+    },
+  };
+};
+
 export const buildReportLocations = (userId: number | null, period: string, tz: string, includeNames: boolean): Promise<LocationsResponse> =>
   buildLocations(rowsInPeriod(userId, period, tz), { timeZone: tz, includeNames });

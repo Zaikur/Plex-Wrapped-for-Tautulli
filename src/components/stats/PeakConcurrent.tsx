@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Users } from "lucide-react";
 import { StatCard } from "./StatCard";
 
+import { VIEWPORT } from "@/lib/motion";
 interface PeakConcurrentProps {
   peakConcurrentStreams: { count: number; date: string; time: string } | null;
 }
@@ -19,9 +20,9 @@ export const PeakConcurrent = ({ peakConcurrentStreams }: PeakConcurrentProps) =
         <motion.p
           initial={{ scale: 0 }}
           whileInView={{ scale: 1 }}
-          viewport={{ once: true }}
+          viewport={VIEWPORT}
           transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-          className="text-5xl font-extrabold gradient-text"
+          className="text-5xl font-extrabold gradient-value"
         >
           {peakConcurrentStreams.count}
         </motion.p>

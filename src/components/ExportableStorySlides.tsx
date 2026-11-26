@@ -1,21 +1,28 @@
 // src/components/ExportableStorySlides.tsx
 
 import { useEffect, useState } from "react";
-import { TautulliConfig, TautulliUser, WrappedStats, StreamingLocation } from "@/types/tautulli";
+import { TautulliUser, WrappedStats, StreamingLocation } from "@/types/tautulli";
 import { YearSelection, getDisplayYear, getYearsCount } from "./YearSelector";
-import { formatHours, getImageUrl } from "@/lib/tautulli";
+import { formatDuration, formatHours, getImageUrl } from "@/lib/tautulli";
+import { describePersonality, isGroupPersonality, personalityDef, personalityLabel } from "@/lib/personality";
 import { Clock, Film, Tv, Play, Calendar, Flame, Moon, Star, Trophy, Sparkles, Sunrise, Clapperboard, Globe, MapPin } from "lucide-react";
 import { getServerAdminSettings, checkLogoExists, getLogoUrl } from "@/lib/serverConfig";
+import { camcorderDate, getTheme, withAlpha } from "@/lib/themes";
 import { generateLocationInsight } from "@/lib/geolocation";
 
 interface ExportableStorySlidesProps {
   user: TautulliUser;
   stats: WrappedStats;
   yearSelection: YearSelection;
-  config: TautulliConfig;
   geoLocations?: StreamingLocation[];
   onReady?: () => void;
 }
+
+// VHS Rewind's sleeve stripes (every stop spelled out: html2canvas reads no two-position stops)
+const VHS_STRIPES =
+  "linear-gradient(180deg, #e8322f 0%, #e8322f 20%, #f5821f 20%, #f5821f 40%, #ffc93c 40%, #ffc93c 60%, #3fae49 60%, #3fae49 80%, #2f6fd8 80%, #2f6fd8 100%)";
+// The ink on Rental Night's ticket stub
+const RENTAL_BLUE = "#0d3fa9";
 
 const formatDurationHM = (seconds: number): string => {
   const totalMinutes = Math.round(seconds / 60);
@@ -48,7 +55,6 @@ export const ExportableStorySlides = ({
   user,
   stats,
   yearSelection,
-  config,
   geoLocations = [],
   onReady,
 }: ExportableStorySlidesProps) => {
@@ -70,6 +76,8 @@ export const ExportableStorySlides = ({
 
   const hours = formatHours(stats.totalWatchTime);
   const days = Math.floor(hours / 24);
+  // Whole hours with thousands separators, like the report's big number
+  const hoursLabel = Math.round(hours).toLocaleString();
 
   // Reorder watch by day to start with Monday
   const orderedWatchByDay = reorderDaysFromMonday(stats.watchByDay);
@@ -98,25 +106,14 @@ export const ExportableStorySlides = ({
     return () => clearTimeout(timer);
   }, [onReady, logoLoaded]);
 
-  const colors = {
-    bg: '#0a0a0f',
-    card: '#0f0f14',
-    cardAlt: '#141419',
-    text: '#fafafa',
-    textMuted: '#71717a',
-    cyan: '#00d4aa',
-    purple: '#a855f7',
-    pink: '#ec4899',
-    orange: '#f97316',
-    yellow: '#eab308',
-    green: '#22c55e',
-    blue: '#3b82f6',
-  };
+  const theme = getTheme(adminSettings.theme);
+  const colors = theme.exportColors;
 
   const slideStyle: React.CSSProperties = {
     width: '540px',
     height: '960px',
     backgroundColor: colors.bg,
+    backgroundImage: colors.slideBackground,
     color: colors.text,
     fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     display: 'flex',
@@ -147,6 +144,52 @@ export const ExportableStorySlides = ({
     color: colors.textMuted,
     letterSpacing: '0.05em',
   };
+
+  // Behind every slide: the glow, plus VHS Rewind's on-screen display, date stamp and sleeve stripes
+  const [stampDate] = camcorderDate();
+  const osd = (style: React.CSSProperties) => ({ position: 'absolute', fontFamily: "'VT323', monospace", lineHeight: 1, ...style }) as React.CSSProperties;
+  const slideBackdrop = (
+    <>
+      <div style={gradientOverlay} />
+      {theme.decor === 'vhs' && (
+        <>
+          <div style={osd({ top: '18px', left: '24px', fontSize: '30px', color: '#ffffff' })}>PLAY ►</div>
+          <div style={osd({ top: '20px', right: '24px', fontSize: '24px', color: '#ff9f1a' })}>{stampDate}</div>
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '20px', background: VHS_STRIPES }} />
+        </>
+      )}
+    </>
+  );
+
+  // The title at the top; in Rental Night it's printed on the yellow ticket stub
+  const slideHeader =
+    theme.decor === 'rental' ? (
+      <div style={{ position: 'absolute', top: '18px', left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
+        <div
+          style={{
+            position: 'relative',
+            padding: '7px 20px 6px 34px',
+            background: colors.cyan,
+            color: RENTAL_BLUE,
+            fontSize: '15px',
+            fontWeight: 800,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            transform: 'rotate(-3deg)',
+            boxShadow: '0 6px 14px rgba(0, 0, 0, 0.35)',
+          }}
+        >
+          <div style={{ position: 'absolute', left: '15px', top: '6px', bottom: '6px', borderLeft: `2px dashed ${withAlpha(RENTAL_BLUE, 0.5)}` }} />
+          {titleWithYear}
+          {/* Notched corners, cut in the background's colour (the export can't use CSS masks) */}
+          {[{ top: '-6px', left: '-6px' }, { top: '-6px', right: '-6px' }, { bottom: '-6px', left: '-6px' }, { bottom: '-6px', right: '-6px' }].map((corner, i) => (
+            <div key={i} style={{ position: 'absolute', width: '12px', height: '12px', borderRadius: '50%', background: '#1450c8', ...corner }} />
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div style={headerStyle}>{titleWithYear}</div>
+    );
 
   const footerStyle: React.CSSProperties = {
     position: 'absolute',
@@ -192,7 +235,7 @@ export const ExportableStorySlides = ({
   // Slide 1: Hero (with logo and footer)
   slides.push(
     <div key="hero" className="story-slide" style={slideStyle}>
-      <div style={gradientOverlay} />
+      {slideBackdrop}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
         <LogoDisplay maxHeight={adminSettings.logoMaxHeight || 80} />
         <div style={{ fontSize: '16px', fontWeight: 500, color: colors.purple, marginBottom: '24px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
@@ -204,41 +247,43 @@ export const ExportableStorySlides = ({
         <h2 style={{ fontSize: '42px', fontWeight: 700, color: colors.text, marginBottom: '48px' }}>
           {title}
         </h2>
-        <div style={{ width: '80px', height: '4px', background: `linear-gradient(90deg, ${colors.cyan}, ${colors.pink})`, borderRadius: '2px', marginBottom: '48px' }} />
-        <p style={{ fontSize: '20px', color: colors.textMuted }}>
-          Let's see what you've been watching
-        </p>
+        <div style={{ width: '80px', height: '4px', background: `linear-gradient(90deg, ${colors.cyan}, ${colors.pink})`, borderRadius: '2px' }} />
       </div>
       <div style={footerStyle}>Powered by Tautulli</div>
     </div>
   );
 
-  // Slide 2: Total Watch Time
+  // Slide 2: Total watch time, with the content breakdown below it
+  const contentCounts = [
+    { Icon: Film, color: colors.pink, value: stats.totalMovies, label: 'Movies' },
+    { Icon: Tv, color: colors.cyan, value: stats.totalShows, label: 'TV Shows' },
+    { Icon: Play, color: colors.purple, value: stats.totalEpisodes, label: 'Episodes' },
+  ];
   slides.push(
     <div key="watchtime" className="story-slide" style={slideStyle}>
-      <div style={gradientOverlay} />
-      <div style={headerStyle}>{titleWithYear}</div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+      {slideBackdrop}
+      {slideHeader}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 36px 48px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
         <div style={{
-          fontSize: '80px',
-          marginBottom: '32px',
+          fontSize: '72px',
+          marginBottom: '24px',
         }}>
           🍿
         </div>
-        
+
         <p style={{ color: colors.textMuted, fontSize: '18px', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
           {isAllTime && yearsCount > 1 ? `The past ${yearsCount} years` : 'This year'} you watched
         </p>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px' }}>
-          <div style={{ 
-            fontSize: '100px', 
-            fontWeight: 800, 
-            lineHeight: 1, 
-            marginBottom: '8px', 
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '32px' }}>
+          <div style={{
+            fontSize: '100px',
+            fontWeight: 800,
+            lineHeight: 1,
+            marginBottom: '8px',
             color: colors.cyan,
           }}>
-            {hours}
+            {hoursLabel}
           </div>
           <p style={{ fontSize: '32px', fontWeight: 600, color: colors.text, margin: 0 }}>hours</p>
         </div>
@@ -258,165 +303,158 @@ export const ExportableStorySlides = ({
             </p>
           </div>
         )}
-      </div>
-    </div>
-  );
 
-  // Slide 3: Content Breakdown
-  slides.push(
-    <div key="content" className="story-slide" style={slideStyle}>
-      <div style={gradientOverlay} />
-      <div style={headerStyle}>{titleWithYear}</div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '80px 48px 64px', position: 'relative', zIndex: 1 }}>
-        <h2 style={{ fontSize: '32px', fontWeight: 700, color: colors.text, marginBottom: '48px', textAlign: 'center' }}>
-          Your Content
-        </h2>
-        
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '32px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '28px', backgroundColor: colors.cardAlt, borderRadius: '20px' }}>
-            <div style={{ padding: '20px', borderRadius: '16px', backgroundColor: `${colors.pink}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Film size={40} color={colors.pink} />
+        <div style={{ alignSelf: 'stretch', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginTop: '48px' }}>
+          {contentCounts.map(({ Icon, color, value, label }) => (
+            <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 8px', backgroundColor: colors.cardAlt, borderRadius: '20px' }}>
+              <div style={{ padding: '14px', borderRadius: '14px', backgroundColor: `${color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon size={28} color={color} />
+              </div>
+              <p style={{ fontSize: '36px', fontWeight: 800, color: colors.text, lineHeight: 1, margin: '16px 0 0' }}>{value.toLocaleString()}</p>
+              <p style={{ fontSize: '14px', color: colors.textMuted, lineHeight: 1, margin: '8px 0 0' }}>{label}</p>
             </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', marginTop: '-8px' }}>
-              <p style={{ fontSize: '48px', fontWeight: 800, color: colors.text, lineHeight: 1, margin: 0 }}>{stats.totalMovies}</p>
-              <p style={{ fontSize: '18px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>Movies Watched</p>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '28px', backgroundColor: colors.cardAlt, borderRadius: '20px' }}>
-            <div style={{ padding: '20px', borderRadius: '16px', backgroundColor: `${colors.cyan}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Tv size={40} color={colors.cyan} />
-            </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', marginTop: '-8px' }}>
-              <p style={{ fontSize: '48px', fontWeight: 800, color: colors.text, lineHeight: 1, margin: 0 }}>{stats.totalShows}</p>
-              <p style={{ fontSize: '18px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>TV Shows</p>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '28px', backgroundColor: colors.cardAlt, borderRadius: '20px' }}>
-            <div style={{ padding: '20px', borderRadius: '16px', backgroundColor: `${colors.purple}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Play size={40} color={colors.purple} />
-            </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', marginTop: '-8px' }}>
-              <p style={{ fontSize: '48px', fontWeight: 800, color: colors.text, lineHeight: 1, margin: 0 }}>{stats.totalEpisodes}</p>
-              <p style={{ fontSize: '18px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>Episodes</p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
   );
 
-  // Slide 4: Top 5 Movies
+  // Slides 3 & 4: Top movies and shows, like the report: #1 as the hero, places 2–5 below it
+  const topSlide = (
+    key: string,
+    kind: "Movie" | "Show",
+    accent: string,
+    Icon: typeof Film,
+    items: { title: string; totalTime: number; thumb?: string; detail: string; plays?: number }[],
+  ) => {
+    const [top, ...rest] = items;
+    return (
+      <div key={key} className="story-slide" style={slideStyle}>
+        {slideBackdrop}
+        {slideHeader}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '70px 30px 50px', position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '22px', justifyContent: 'center' }}>
+            <Icon size={28} color={accent} />
+            <span style={{ fontSize: '24px', fontWeight: 700, color: colors.text }}>Top {kind}s</span>
+          </div>
+
+          {/* #1 */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '18px',
+            padding: '18px',
+            backgroundColor: `${accent}14`,
+            border: `2px solid ${accent}40`,
+            borderRadius: '22px',
+          }}>
+            <div style={{ position: 'relative', width: '132px', height: '198px', flexShrink: 0, borderRadius: '12px', overflow: 'hidden', backgroundColor: colors.cardAlt }}>
+              {top.thumb ? (
+                <img
+                  src={getImageUrl(top.thumb)}
+                  alt={top.title}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  crossOrigin="anonymous"
+                />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon size={44} color={accent} />
+                </div>
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: accent, margin: 0 }}>Your #1 {kind}</p>
+              <p style={{ fontSize: '24px', fontWeight: 800, lineHeight: 1.15, color: colors.text, margin: '8px 0 6px' }}>{top.title}</p>
+              <p style={{ fontSize: '14px', color: colors.textMuted, margin: 0 }}>{top.detail}</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: '14px' }}>
+                <p style={{ margin: 0, lineHeight: 1, fontSize: '15px', color: colors.textMuted }}>
+                  <span style={{ fontWeight: 700, color: colors.text }}>{formatDurationHM(top.totalTime)}</span> watched
+                </p>
+                {top.plays !== undefined && top.plays > 1 && (
+                  <p style={{ margin: 0, lineHeight: 1, fontSize: '15px', color: colors.textMuted }}>
+                    <span style={{ fontWeight: 700, color: colors.text }}>{top.plays}x</span> plays
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 2–5 */}
+          {rest.length > 0 && (
+            <>
+              <p style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.textMuted, margin: '26px 0 12px', textAlign: 'center' }}>
+                Also in your top 5
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {rest.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', backgroundColor: colors.cardAlt, borderRadius: '14px' }}>
+                    <span style={{ fontSize: '18px', fontWeight: 800, color: colors.purple, width: '30px', flexShrink: 0, textAlign: 'center' }}>#{i + 2}</span>
+                    {item.thumb && (
+                      <div style={{ width: '40px', height: '60px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, backgroundColor: colors.card }}>
+                        <img
+                          src={getImageUrl(item.thumb)}
+                          alt={item.title}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          crossOrigin="anonymous"
+                        />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '15px', fontWeight: 600, color: colors.text, margin: 0, lineHeight: 1.35 }}>{item.title}</p>
+                      <p style={{ fontSize: '13px', color: colors.textMuted, margin: 0, marginTop: '3px' }}>{item.detail}</p>
+                    </div>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: accent, flexShrink: 0 }}>{formatDurationHM(item.totalTime)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (stats.topMovies.length > 0) {
     slides.push(
-      <div key="topmovies" className="story-slide" style={slideStyle}>
-        <div style={gradientOverlay} />
-        <div style={headerStyle}>{titleWithYear}</div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '70px 28px 50px', position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', justifyContent: 'center' }}>
-            <Film size={28} color={colors.pink} />
-            <span style={{ fontSize: '24px', fontWeight: 700, color: colors.text }}>Top Movies</span>
-          </div>
-          
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '10px' }}>
-            {stats.topMovies.slice(0, 5).map((movie, i) => (
-              <div key={i} style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '12px', 
-                padding: '14px 16px', 
-                backgroundColor: i === 0 ? `${colors.pink}15` : colors.cardAlt, 
-                borderRadius: '16px', 
-                border: i === 0 ? `2px solid ${colors.pink}40` : 'none',
-              }}>
-                <span style={{ fontSize: '22px', fontWeight: 800, color: i === 0 ? colors.pink : colors.purple, width: '32px', flexShrink: 0, textAlign: 'center' }}>#{i + 1}</span>
-                {movie.thumb && (
-                  <div style={{ width: '50px', height: '75px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, backgroundColor: colors.cardAlt }}>
-                    <img 
-                      src={getImageUrl(config, movie.thumb)} 
-                      alt={movie.title}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      crossOrigin="anonymous"
-                    />
-                  </div>
-                )}
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <p style={{ 
-                    fontSize: '15px', 
-                    fontWeight: 600, 
-                    color: colors.text, 
-                    margin: 0, 
-                    lineHeight: 1.4,
-                  }}>{movie.title}</p>
-                  <p style={{ fontSize: '13px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{movie.watchCount} play{movie.watchCount !== 1 ? 's' : ''}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      topSlide(
+        "topmovies",
+        "Movie",
+        colors.pink,
+        Film,
+        stats.topMovies.slice(0, 5).map((movie) => ({
+          title: movie.title,
+          totalTime: movie.totalTime,
+          thumb: movie.thumb,
+          detail: `${movie.year}`,
+          plays: movie.watchCount,
+        })),
+      ),
     );
   }
 
-  // Slide 5: Top 5 Shows
   if (stats.topShows.length > 0) {
     slides.push(
-      <div key="topshows" className="story-slide" style={slideStyle}>
-        <div style={gradientOverlay} />
-        <div style={headerStyle}>{titleWithYear}</div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '70px 28px 50px', position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', justifyContent: 'center' }}>
-            <Tv size={28} color={colors.cyan} />
-            <span style={{ fontSize: '24px', fontWeight: 700, color: colors.text }}>Top Shows</span>
-          </div>
-          
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '10px' }}>
-            {stats.topShows.slice(0, 5).map((show, i) => (
-              <div key={i} style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '12px', 
-                padding: '14px 16px', 
-                backgroundColor: i === 0 ? `${colors.cyan}15` : colors.cardAlt, 
-                borderRadius: '16px', 
-                border: i === 0 ? `2px solid ${colors.cyan}40` : 'none',
-              }}>
-                <span style={{ fontSize: '22px', fontWeight: 800, color: i === 0 ? colors.cyan : colors.purple, width: '32px', flexShrink: 0, textAlign: 'center' }}>#{i + 1}</span>
-                {show.thumb && (
-                  <div style={{ width: '50px', height: '75px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, backgroundColor: colors.cardAlt }}>
-                    <img 
-                      src={getImageUrl(config, show.thumb)} 
-                      alt={show.title}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      crossOrigin="anonymous"
-                    />
-                  </div>
-                )}
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <p style={{ 
-                    fontSize: '15px', 
-                    fontWeight: 600, 
-                    color: colors.text, 
-                    margin: 0, 
-                    lineHeight: 1.4,
-                  }}>{show.title}</p>
-                  <p style={{ fontSize: '13px', color: colors.textMuted, margin: 0, marginTop: '4px' }}>{show.episodeCount} episode{show.episodeCount !== 1 ? 's' : ''}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      topSlide(
+        "topshows",
+        "Show",
+        colors.cyan,
+        Tv,
+        stats.topShows.slice(0, 5).map((show) => ({
+          title: show.title,
+          totalTime: show.totalTime,
+          thumb: show.thumb,
+          detail: `${show.episodeCount} episode${show.episodeCount !== 1 ? 's' : ''}`,
+        })),
+      ),
     );
   }
 
-  // Slide 6: Trends
+  // Slide 5: Trends
   if (stats.watchByMonth.some(m => m.hours > 0) || stats.watchByDay.some(d => d.hours > 0)) {
     slides.push(
       <div key="trends" className="story-slide" style={slideStyle}>
-        <div style={gradientOverlay} />
-        <div style={headerStyle}>{titleWithYear}</div>
+        {slideBackdrop}
+        {slideHeader}
         <div style={{ 
           flex: 1, 
           display: 'grid',
@@ -505,9 +543,10 @@ export const ExportableStorySlides = ({
               {stats.watchByHour?.map((hourData) => {
                 const maxMinutes = Math.max(...(stats.watchByHour?.map(h => h.minutes) || [1]), 1);
                 const intensity = hourData.minutes / maxMinutes;
-                const bgColor = intensity > 0 
-                  ? `rgba(0, 212, 170, ${Math.max(intensity * 0.8, 0.15)})` 
-                  : 'rgba(255,255,255,0.03)';
+                const alpha = intensity > 0 ? Math.max(intensity * 0.8, 0.15) : 0;
+                const bgColor = alpha > 0 ? withAlpha(colors.heat, alpha) : 'rgba(255,255,255,0.03)';
+                // Light text on the dim tiles, dark on the bright ones
+                const labelColor = alpha >= 0.6 ? colors.bg : alpha > 0.24 ? colors.text : colors.textMuted;
                 const hour = hourData.hour;
                 const label = hour === 0 ? '12a' : hour === 12 ? '12p' : hour > 12 ? `${hour-12}p` : `${hour}a`;
                 return (
@@ -520,14 +559,27 @@ export const ExportableStorySlides = ({
                       textAlign: 'center',
                     }}
                   >
-                    <span style={{ fontSize: '9px', color: intensity > 0.3 ? colors.text : colors.textMuted }}>{label}</span>
+                    <span style={{ fontSize: '9px', fontWeight: 500, color: labelColor }}>{label}</span>
                   </div>
                 );
               })}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
-              <span style={{ fontSize: '9px', color: colors.textMuted }}>Less active</span>
-              <span style={{ fontSize: '9px', color: colors.textMuted }}>More active</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
+              <span style={{ fontSize: '9px', color: colors.textMuted, lineHeight: 1 }}>Less active</span>
+              <div style={{ display: 'flex', gap: '3px' }}>
+                {[0, 0.2, 0.4, 0.6, 0.8].map((alpha) => (
+                  <div
+                    key={alpha}
+                    style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '3px',
+                      backgroundColor: alpha > 0 ? withAlpha(colors.heat, alpha) : 'rgba(255,255,255,0.03)',
+                    }}
+                  />
+                ))}
+              </div>
+              <span style={{ fontSize: '9px', color: colors.textMuted, lineHeight: 1 }}>More active</span>
             </div>
           </div>
         </div>
@@ -535,12 +587,12 @@ export const ExportableStorySlides = ({
     );
   }
 
-  // Slide 7: Genres
+  // Slide 6: Genres
   if (stats.topGenres.length > 0) {
     slides.push(
       <div key="genres" className="story-slide" style={slideStyle}>
-        <div style={gradientOverlay} />
-        <div style={headerStyle}>{titleWithYear}</div>
+        {slideBackdrop}
+        {slideHeader}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '80px 40px 64px', position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px', justifyContent: 'center' }}>
             <Clapperboard size={28} color={colors.pink} />
@@ -633,8 +685,8 @@ export const ExportableStorySlides = ({
   
     slides.push(
       <div key="geolocation" className="story-slide" style={slideStyle}>
-        <div style={gradientOverlay} />
-        <div style={headerStyle}>{titleWithYear}</div>
+        {slideBackdrop}
+        {slideHeader}
         <div style={{ 
           flex: 1, 
           display: 'flex', 
@@ -773,11 +825,11 @@ export const ExportableStorySlides = ({
     );
   }
 
-  // Slide 8: Fun Facts
+  // Fun Facts
   slides.push(
     <div key="funfacts" className="story-slide" style={slideStyle}>
-      <div style={gradientOverlay} />
-      <div style={headerStyle}>{titleWithYear}</div>
+      {slideBackdrop}
+      {slideHeader}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '80px 40px 64px', position: 'relative', zIndex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px', justifyContent: 'center' }}>
           <Sparkles size={28} color={colors.yellow} />
@@ -786,72 +838,65 @@ export const ExportableStorySlides = ({
         
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           {(() => {
-            const getPersonality = () => {
-              const totalTime = (stats.morningWatchTime || 0) + (stats.afternoonWatchTime || 0) + (stats.eveningWatchTime || 0) + (stats.nightWatchTime || 0);
-              if (totalTime === 0) return { label: "Balanced Viewer", color: colors.cyan, emoji: "⚖️" };
-              
-              const nightPct = (stats.nightWatchTime || 0) / totalTime;
-              const morningPct = (stats.morningWatchTime || 0) / totalTime;
-              const avgSessionMin = (stats.avgSessionLength || 0) / 60;
-              const avgDailyHours = stats.avgDailyWatchTime / 3600;
-              
-              if (avgSessionMin > 90) return { label: "Binge Master", color: colors.pink, emoji: "🍿" };
-              if (avgDailyHours > 4) return { label: "Marathon Runner", color: colors.orange, emoji: "🏃" };
-              if (nightPct > 0.35) return { label: "Night Owl", color: colors.purple, emoji: "🦉" };
-              if (morningPct > 0.35) return { label: "Early Bird", color: colors.yellow, emoji: "🐦" };
-              if (stats.weekendPercentage > 60) return { label: "Weekend Warrior", color: colors.orange, emoji: "⚔️" };
-              return { label: "Balanced Viewer", color: colors.cyan, emoji: "⚖️" };
-            };
-            const personality = getPersonality();
+            const personality = personalityDef(stats.personality);
+            const color = colors[personality.color];
             return (
-              <div style={{ textAlign: 'center', padding: '32px', marginBottom: '32px', background: `linear-gradient(135deg, ${personality.color}22 0%, transparent 100%)`, borderRadius: '24px' }}>
+              <div style={{ textAlign: 'center', padding: '32px', marginBottom: '32px', background: `linear-gradient(135deg, ${color}22 0%, transparent 100%)`, borderRadius: '24px' }}>
                 <span style={{ fontSize: '48px' }}>{personality.emoji}</span>
-                <p style={{ fontSize: '14px', color: colors.textMuted, marginTop: '12px' }}>You're a</p>
-                <p style={{ fontSize: '36px', fontWeight: 800, color: personality.color }}>{personality.label}</p>
+                <p style={{ fontSize: '14px', color: colors.textMuted, marginTop: '12px' }}>
+                  {isGroupPersonality(stats.personality) ? "Your streaming personalities are" : "Your streaming personality is"}
+                </p>
+                <p style={{ fontSize: '36px', fontWeight: 800, color }}>{personalityLabel(stats.personality)}</p>
+                <p style={{ fontSize: '16px', color: colors.textMuted, marginTop: '8px' }}>{describePersonality(stats.personality)}</p>
               </div>
             );
           })()}
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-            {stats.lateNightSessions > 0 && (
-              <div style={{ padding: '20px', backgroundColor: colors.cardAlt, borderRadius: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <Moon size={28} color={colors.purple} style={{ marginBottom: '8px' }} />
-                <p style={{ fontSize: '32px', fontWeight: 700, color: colors.text, margin: 0, marginBottom: '8px' }}>{stats.lateNightSessions}</p>
-                <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>Late nights</p>
+          {(() => {
+            // Up to four tiles; the daily average fills the last spot when a session count is missing
+            const tiles = [
+              { show: stats.lateNightSessions > 0, Icon: Moon, color: colors.purple, value: stats.lateNightSessions, label: 'Late nights' },
+              { show: stats.earlyBirdSessions > 0, Icon: Sunrise, color: colors.yellow, value: stats.earlyBirdSessions, label: 'Early mornings' },
+              { show: stats.longestStreak > 0, Icon: Flame, color: colors.orange, value: stats.longestStreak, label: 'Day streak' },
+              { show: stats.uniqueTitles > 0, Icon: Star, color: colors.yellow, value: stats.uniqueTitles, label: 'Unique titles' },
+              { show: stats.avgDailyWatchTime > 0, Icon: Clock, color: colors.cyan, value: formatDuration(stats.avgDailyWatchTime), label: 'Daily average when active' },
+            ].filter((tile) => tile.show).slice(0, 4);
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                {tiles.map(({ Icon, color, value, label }, i) => (
+                  <div
+                    key={label}
+                    style={{
+                      padding: '20px',
+                      backgroundColor: colors.cardAlt,
+                      borderRadius: '16px',
+                      textAlign: 'center',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      // A lone tile on the last row takes the full width
+                      gridColumn: i === tiles.length - 1 && tiles.length % 2 === 1 ? '1 / -1' : undefined,
+                    }}
+                  >
+                    <Icon size={28} color={color} style={{ marginBottom: '8px' }} />
+                    <p style={{ fontSize: '32px', fontWeight: 700, color: colors.text, margin: 0, marginBottom: '8px' }}>{value}</p>
+                    <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>{label}</p>
+                  </div>
+                ))}
               </div>
-            )}
-            {stats.earlyBirdSessions > 0 && (
-              <div style={{ padding: '20px', backgroundColor: colors.cardAlt, borderRadius: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <Sunrise size={28} color={colors.yellow} style={{ marginBottom: '8px' }} />
-                <p style={{ fontSize: '32px', fontWeight: 700, color: colors.text, margin: 0, marginBottom: '8px' }}>{stats.earlyBirdSessions}</p>
-                <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>Early mornings</p>
-              </div>
-            )}
-            {stats.longestStreak > 0 && (
-              <div style={{ padding: '20px', backgroundColor: colors.cardAlt, borderRadius: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <Flame size={28} color={colors.orange} style={{ marginBottom: '8px' }} />
-                <p style={{ fontSize: '32px', fontWeight: 700, color: colors.text, margin: 0, marginBottom: '8px' }}>{stats.longestStreak}</p>
-                <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>Day streak</p>
-              </div>
-            )}
-            {stats.uniqueTitles > 0 && (
-              <div style={{ padding: '20px', backgroundColor: colors.cardAlt, borderRadius: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                <Star size={28} color={colors.yellow} style={{ marginBottom: '8px' }} />
-                <p style={{ fontSize: '32px', fontWeight: 700, color: colors.text, margin: 0, marginBottom: '8px' }}>{stats.uniqueTitles}</p>
-                <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>Unique titles</p>
-              </div>
-            )}
-          </div>
+            );
+          })()}
         </div>
       </div>
     </div>
   );
 
-  // Slide 9: Thank You (with logo)
+  // Last slide: Thank You (with logo)
   slides.push(
     <div key="thankyou" className="story-slide" style={slideStyle}>
-      <div style={gradientOverlay} />
-      <div style={headerStyle}>{titleWithYear}</div>
+      {slideBackdrop}
+      {slideHeader}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 48px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
         <LogoDisplay maxHeight={adminSettings.logoMaxHeight || 80} />
         <span style={{ fontSize: '64px', marginBottom: '32px' }}>🎉</span>
@@ -864,7 +909,7 @@ export const ExportableStorySlides = ({
         
         <div style={{ display: 'flex', gap: '24px', marginBottom: '48px' }}>
           <div style={{ textAlign: 'center' }}>
-            <p style={{ fontSize: '42px', fontWeight: 800, color: colors.cyan, margin: 0 }}>{hours}h</p>
+            <p style={{ fontSize: '42px', fontWeight: 800, color: colors.cyan, margin: 0 }}>{hoursLabel}h</p>
             <p style={{ fontSize: '14px', color: colors.textMuted, margin: 0 }}>watched</p>
           </div>
           <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }} />

@@ -3,8 +3,9 @@ export interface TautulliUser {
   username: string;
   friendly_name: string;
   thumb: string;
-  is_admin: boolean;
-  is_active: boolean;
+  email?: string;
+  is_admin?: boolean | number;
+  is_active?: boolean | number;
 }
 
 export interface WatchHistory {
@@ -70,17 +71,20 @@ export interface MediaInfo {
 
 export interface WrappedStats {
   totalWatchTime: number;
+  movieWatchTime: number;
+  /** People who watched something in the period */
+  activeUsers: number;
   totalMovies: number;
   totalShows: number;
   totalEpisodes: number;
   topMovie: { title: string; year: number; watchCount: number; totalTime: number; thumb?: string; userCount?: number } | null;
   topShow: { title: string; watchCount: number; totalTime: number; episodeCount: number; thumb?: string; userCount?: number } | null;
-  topMovies: { title: string; year: number; watchCount: number; totalTime: number; thumb?: string }[];
-  topShows: { title: string; watchCount: number; totalTime: number; episodeCount: number; thumb?: string }[];
+  topMovies: { title: string; year: number; watchCount: number; totalTime: number; thumb?: string; userCount: number }[];
+  topShows: { title: string; watchCount: number; totalTime: number; episodeCount: number; thumb?: string; userCount: number }[];
   watchByDay: { day: string; hours: number }[];
   watchByHour: { hour: number; minutes: number }[];
   watchByMonth: { month: string; hours: number }[];
-  watchByYear: { year: number; hours: number }[];
+  watchByYear: { year: number; hours: number; viewers: number }[];
   longestBinge: { title: string; duration: number; date: string } | null;
   lateNightSessions: number;
   weekendPercentage: number;
@@ -91,8 +95,9 @@ export interface WrappedStats {
   mostBingedDay: { date: string; duration: number } | null;
   earlyBirdSessions: number;
   platforms: { name: string; count: number; percentage: number }[];
-  firstWatch: { title: string; date: string } | null;
-  lastWatch: { title: string; date: string } | null;
+  /** `image` is landscape: an episode's own still, or a movie's background art */
+  firstWatch: { title: string; date: string; year: number; image?: string } | null;
+  lastWatch: { title: string; date: string; year: number; image?: string } | null;
   longestStreak: number;
   totalSessions: number;
   // New stats
@@ -102,18 +107,58 @@ export interface WrappedStats {
   eveningWatchTime: number;
   nightWatchTime: number;
   topGenres: { genre: string; count: number; watchTime: number }[];
-  topActors: { name: string; count: number; titleCount: number; watchTime: number }[];
-  topDirectors: { name: string; count: number; titleCount: number; watchTime: number }[];
+  /** `count`: users; `score`: titles watched, counted once per user who watched them (the ranking) */
+  topActors: { name: string; count: number; titleCount: number; score: number; watchTime: number }[];
+  topDirectors: { name: string; count: number; titleCount: number; score: number; watchTime: number }[];
   contentDecades: { decade: string; count: number; watchTime: number }[];
-  mostRewatched: { title: string; rewatchCount: number } | null;
-  topMoviesByUsers: { title: string; userCount: number; totalTime: number }[];
-  topShowsByUsers: { title: string; userCount: number; totalTime: number }[];
-  peakConcurrentStreams: { count: number; date: string; time: string } | null;
-  streamingLocations: StreamingLocation[];
+  /** The comfort watch: the show or movie with the most time spent rewatching (`episodeCount`: shows only) */
+  mostRewatched: {
+    title: string;
+    type: "movie" | "show";
+    rewatchTime: number;
+    episodeCount: number;
+    userCount: number;
+    thumb?: string;
+  } | null;
+  peakConcurrentStreams: { count: number; date: string; time: string; timestamp?: number } | null;
+  /** Missing from reports built before personalities were computed on the server */
+  personality?: StreamingPersonality | null;
+  streamingLocations?: StreamingLocation[];
+}
+
+export type PersonalityId =
+  | "nightOwl"
+  | "earlyBird"
+  | "matineeFan"
+  | "primeTimeViewer"
+  | "weekendWarrior"
+  | "marathonRunner"
+  | "bingeMaster"
+  | "movieBuff"
+  | "retroLover"
+  | "trendChaser"
+  | "superfan"
+  | "contentExplorer"
+  | "comfortWatcher"
+  | "completionist"
+  | "channelSurfer"
+  | "creatureOfHabit"
+  | "platformHopper"
+  | "balancedViewer";
+
+export interface StreamingPersonality {
+  id: PersonalityId;
+  /** The stat that earned it: a 0-1 share, seconds (Marathon Runner) or a count */
+  value?: number;
+  /** Superfan: the show or movie */
+  title?: string;
+  /** Everyone report: how many of the counted viewers have this personality */
+  viewers?: number;
+  totalViewers?: number;
 }
 
 export interface StreamingLocation {
-  ip: string;
+  ip: string; // opaque id (raw IPs are never sent to the browser)
   city: string;
   region: string;
   country: string;

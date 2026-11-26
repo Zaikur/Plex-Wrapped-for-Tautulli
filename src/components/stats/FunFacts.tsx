@@ -1,9 +1,46 @@
 import { motion } from "framer-motion";
-import { Moon, CalendarDays, Flame, Sparkles, Sun, Clock, Sunrise, Zap, Heart } from "lucide-react";
+import {
+  Moon,
+  CalendarDays,
+  Flame,
+  Sparkles,
+  Sun,
+  Clock,
+  Sunrise,
+  Zap,
+  Heart,
+  AlarmClock,
+  Hourglass,
+  Tv,
+  Film,
+  History,
+  TrendingUp,
+  Star,
+  Compass,
+  CircleCheck,
+  Shuffle,
+  Repeat,
+  MonitorSmartphone,
+  Scale,
+  type LucideIcon,
+} from "lucide-react";
 import { StatCard } from "./StatCard";
+import { HoloCard } from "./HoloCard";
+import { SectionHeader } from "./SectionHeader";
+import { KineticText } from "@/components/motion/KineticText";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { formatDuration } from "@/lib/tautulli";
+import {
+  describePersonality,
+  isGroupPersonality,
+  personalityDef,
+  personalityLabel,
+  type PersonalityColor,
+} from "@/lib/personality";
+import type { PersonalityId, StreamingPersonality } from "@/types/tautulli";
 
+import { VIEWPORT } from "@/lib/motion";
+import { ScrollingText } from "@/components/motion/ScrollingText";
 interface FunFactsProps {
   lateNightSessions: number;
   weekendPercentage: number;
@@ -14,15 +51,9 @@ interface FunFactsProps {
   earlyBirdSessions: number;
   isGroup: boolean;
   peakHour: number;
-  morningWatchTime: number;
-  afternoonWatchTime: number;
-  eveningWatchTime: number;
-  nightWatchTime: number;
-  totalSessions: number;
-  avgSessionLength: number;
+  longestBinge: { title: string; duration: number; date: string } | null;
+  personality: StreamingPersonality | null | undefined;
 }
-
-type PersonalityColor = "purple" | "yellow" | "orange" | "cyan" | "pink";
 
 const COLOR_CLASSES: Record<PersonalityColor, { bg: string; text: string }> = {
   purple: { bg: "bg-purple/20", text: "text-purple" },
@@ -30,21 +61,28 @@ const COLOR_CLASSES: Record<PersonalityColor, { bg: string; text: string }> = {
   orange: { bg: "bg-orange/20", text: "text-orange" },
   cyan: { bg: "bg-cyan/20", text: "text-cyan" },
   pink: { bg: "bg-pink/20", text: "text-pink" },
+  green: { bg: "bg-green/20", text: "text-green" },
 };
 
-const pluralizePersonality = (label: string) => {
-  const map: Record<string, string> = {
-    "Night Owl": "Night Owls",
-    "Early Bird": "Early Birds",
-    "Weekend Warrior": "Weekend Warriors",
-    "Balanced Viewer": "Balanced Viewers",
-    "Prime Time Viewer": "Prime Time Viewers",
-    "Binge Master": "Binge Masters",
-    "Marathon Runner": "Marathon Runners",
-    "Content Explorer": "Content Explorers",
-    "Comfort Watcher": "Comfort Watchers",
-  };
-  return map[label] ?? `${label}s`;
+const PERSONALITY_ICONS: Record<PersonalityId, LucideIcon> = {
+  nightOwl: Moon,
+  earlyBird: Sunrise,
+  matineeFan: Sun,
+  primeTimeViewer: Tv,
+  weekendWarrior: CalendarDays,
+  marathonRunner: Zap,
+  bingeMaster: Flame,
+  movieBuff: Film,
+  retroLover: History,
+  trendChaser: TrendingUp,
+  superfan: Star,
+  contentExplorer: Compass,
+  comfortWatcher: Heart,
+  completionist: CircleCheck,
+  channelSurfer: Shuffle,
+  creatureOfHabit: Repeat,
+  platformHopper: MonitorSmartphone,
+  balancedViewer: Scale,
 };
 
 export const FunFacts = ({
@@ -57,194 +95,83 @@ export const FunFacts = ({
   earlyBirdSessions,
   isGroup,
   peakHour,
-  morningWatchTime,
-  afternoonWatchTime,
-  eveningWatchTime,
-  nightWatchTime,
-  totalSessions,
-  avgSessionLength,
+  longestBinge,
+  personality,
 }: FunFactsProps) => {
-  const getPersonality = () => {
-    const totalTime = morningWatchTime + afternoonWatchTime + eveningWatchTime + nightWatchTime;
-    if (totalTime === 0) {
-      return {
-        icon: Sparkles,
-        label: "Balanced Viewer",
-        color: "cyan" as const,
-        description: "You stream whenever inspiration strikes!",
-      };
-    }
-
-    const morningPct = morningWatchTime / totalTime;
-    const eveningPct = eveningWatchTime / totalTime;
-    const nightPct = nightWatchTime / totalTime;
-    
-    // Average session in minutes
-    const avgSessionMin = avgSessionLength / 60;
-    // Average daily watch in hours
-    const avgDailyHours = avgDailyWatchTime / 3600;
-
-    // Binge Master: long average sessions (>90 min)
-    if (avgSessionMin > 90) {
-      return {
-        icon: Flame,
-        label: "Binge Master",
-        color: "pink" as const,
-        description: "You don't start what you can't finish!",
-      };
-    }
-
-    // Marathon Runner: high daily average (>4 hours on active days)
-    if (avgDailyHours > 4) {
-      return {
-        icon: Zap,
-        label: "Marathon Runner",
-        color: "orange" as const,
-        description: "Streaming is your cardio!",
-      };
-    }
-
-    // Night Owl: >35% of watch time is 10pm-5am
-    if (nightPct > 0.35) {
-      return {
-        icon: Moon,
-        label: "Night Owl",
-        color: "purple" as const,
-        description: "The night is dark and full of episodes!",
-      };
-    }
-
-    // Early Bird: >35% of watch time is 5am-12pm
-    if (morningPct > 0.35) {
-      return {
-        icon: Sunrise,
-        label: "Early Bird",
-        color: "yellow" as const,
-        description: "Up and streaming with the sun!",
-      };
-    }
-
-    // Weekend Warrior: >60% of sessions on weekends
-    if (weekendPercentage > 60) {
-      return {
-        icon: CalendarDays,
-        label: "Weekend Warrior",
-        color: "orange" as const,
-        description: "Weekends are sacred streaming time!",
-      };
-    }
-
-    // Prime Time Viewer: >45% of watch time is 6pm-10pm
-    if (eveningPct > 0.45) {
-      return {
-        icon: Sun,
-        label: "Prime Time Viewer",
-        color: "orange" as const,
-        description: "Peak hours, peak entertainment!",
-      };
-    }
-
-    // Explorer: many unique titles relative to sessions
-    if (uniqueTitles > totalSessions * 0.7) {
-      return {
-        icon: Sparkles,
-        label: "Content Explorer",
-        color: "cyan" as const,
-        description: "Always discovering something new!",
-      };
-    }
-
-    // Comfort Watcher: few unique titles relative to sessions (rewatcher)
-    if (uniqueTitles < totalSessions * 0.3 && totalSessions > 20) {
-      return {
-        icon: Heart,
-        label: "Comfort Watcher",
-        color: "pink" as const,
-        description: "You know what you love!",
-      };
-    }
-
-    return {
-      icon: Sparkles,
-      label: "Balanced Viewer",
-      color: "cyan" as const,
-      description: "You've got perfectly balanced taste!",
-    };
-  };
-
   const formatPeakHour = (hour: number) => {
     if (hour === 0) return "Midnight";
     if (hour === 12) return "Noon";
     return hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
   };
 
-  const personality = getPersonality();
-  const tone = COLOR_CLASSES[personality.color];
-  const personalityLabel = isGroup ? pluralizePersonality(personality.label) : personality.label;
-  const personalityIntro = isGroup ? "Your streaming personalities are" : "Your streaming personality is";
+  const tone = COLOR_CLASSES[personalityDef(personality).color];
+  const PersonalityIcon = PERSONALITY_ICONS[personality?.id ?? "balancedViewer"] ?? Scale;
+  const personalityIntro = isGroupPersonality(personality)
+    ? "Your streaming personalities are"
+    : "Your streaming personality is";
 
   return (
     <div className="space-y-6">
-      <div className="text-center mb-8">
-        <motion.div
-          initial={{ rotate: -10, scale: 0 }}
-          whileInView={{ rotate: 0, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ type: "spring", stiffness: 200 }}
-          className="inline-flex items-center justify-center w-14 h-14 rounded-2xl gradient-bg mb-4"
-        >
-          <Sparkles className="w-7 h-7 text-primary" />
-        </motion.div>
-        <h2 className="text-3xl font-bold gradient-text">Fun Facts</h2>
-      </div>
+      <SectionHeader icon={Sparkles} title="Fun Facts" />
 
       {/* Personality Card */}
-      <StatCard className="overflow-hidden">
-        <div className="relative">
-          <div className="absolute inset-0 gradient-bg opacity-50" />
-          <div className="relative text-center py-8">
+      <HoloCard tint="gradient-bg opacity-60">
+        <div className="relative text-center py-8">
+          {/* The icon, with two rings orbiting it */}
+          <div className="relative inline-flex mb-6">
+            <div aria-hidden className="absolute -inset-4 rounded-full border border-dashed border-white/20 animate-spin-slow" />
+            <div aria-hidden className="absolute -inset-8 rounded-full border border-white/10 animate-spin-slow-reverse">
+              <span className="absolute -top-1 left-1/2 -ml-1 h-2 w-2 rounded-full bg-primary shadow-[0_0_10px_2px_hsl(var(--primary)/0.7)]" />
+            </div>
             <motion.div
               initial={{ scale: 0, rotate: -180 }}
               whileInView={{ scale: 1, rotate: 0 }}
-              viewport={{ once: true }}
+              viewport={VIEWPORT}
               transition={{ type: "spring", stiffness: 150 }}
-              className={`inline-flex items-center justify-center w-20 h-20 rounded-2xl ${tone.bg} mb-4`}
+              className="relative inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-card ring-1 ring-white/10"
             >
-              <personality.icon className={`w-10 h-10 ${tone.text}`} />
+              <div className={`absolute inset-0 rounded-2xl ${tone.bg}`} />
+              <PersonalityIcon className={`relative w-10 h-10 ${tone.text}`} />
             </motion.div>
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="text-muted-foreground mb-2"
-            >
-              {personalityIntro}
-            </motion.p>
-            <motion.h3
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
-              className="text-4xl font-extrabold gradient-text mb-2"
-            >
-              {personalityLabel}
-            </motion.h3>
-            <p className="text-muted-foreground">{personality.description}</p>
           </div>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={VIEWPORT}
+            transition={{ delay: 0.2 }}
+            className="text-muted-foreground mb-3"
+          >
+            {personalityIntro}
+          </motion.p>
+          <KineticText
+            as="h3"
+            text={personalityLabel(personality)}
+            gradient="value"
+            delay={0.3}
+            className="font-display text-4xl md:text-6xl font-extrabold tracking-tighter leading-[1.05] mb-3 px-2"
+          />
+          <motion.p
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={VIEWPORT}
+            transition={{ delay: 0.6 }}
+            className="text-muted-foreground px-2"
+          >
+            {describePersonality(personality)}
+          </motion.p>
         </div>
-      </StatCard>
+      </HoloCard>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {lateNightSessions > 0 && (
-          <StatCard delay={0.1}>
+          <StatCard delay={0.1} className="group">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-purple/20 animate-pulse-glow">
+              <div className="p-3 rounded-xl bg-purple/20 animate-pulse-glow transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
                 <Moon className="w-6 h-6 text-purple" />
               </div>
               <div>
                 <p className="text-muted-foreground text-sm">Night Owl Sessions</p>
-                <p className="text-3xl font-bold text-foreground">
+                <p className="font-display text-4xl font-extrabold tracking-tight text-foreground">
                   <AnimatedNumber value={lateNightSessions} />
                 </p>
                 <p className="text-xs text-muted-foreground">Watched between midnight and 5am</p>
@@ -254,14 +181,14 @@ export const FunFacts = ({
         )}
 
         {earlyBirdSessions > 0 && (
-          <StatCard delay={0.15}>
+          <StatCard delay={0.15} className="group">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-yellow/20">
+              <div className="p-3 rounded-xl bg-yellow/20 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
                 <Sunrise className="w-6 h-6 text-yellow" />
               </div>
               <div>
                 <p className="text-muted-foreground text-sm">Early Bird Sessions</p>
-                <p className="text-3xl font-bold text-foreground">
+                <p className="font-display text-4xl font-extrabold tracking-tight text-foreground">
                   <AnimatedNumber value={earlyBirdSessions} />
                 </p>
                 <p className="text-xs text-muted-foreground">Watched between 5am and 8am</p>
@@ -270,14 +197,14 @@ export const FunFacts = ({
           </StatCard>
         )}
 
-        <StatCard delay={0.2}>
+        <StatCard delay={0.2} className="group">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-orange/20">
+            <div className="p-3 rounded-xl bg-orange/20 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
               <CalendarDays className="w-6 h-6 text-orange" />
             </div>
             <div>
               <p className="text-muted-foreground text-sm">Weekend Streaming</p>
-              <p className="text-3xl font-bold text-foreground">
+              <p className="font-display text-4xl font-extrabold tracking-tight text-foreground">
                 <AnimatedNumber value={weekendPercentage} suffix="%" />
               </p>
               <p className="text-xs text-muted-foreground">of sessions on weekends</p>
@@ -285,14 +212,14 @@ export const FunFacts = ({
           </div>
         </StatCard>
 
-        <StatCard delay={0.25}>
+        <StatCard delay={0.25} className="group">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-cyan/20">
+            <div className="p-3 rounded-xl bg-cyan/20 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
               <Clock className="w-6 h-6 text-cyan" />
             </div>
             <div>
               <p className="text-muted-foreground text-sm">Daily Average</p>
-              <p className="text-3xl font-bold text-foreground">
+              <p className="font-display text-4xl font-extrabold tracking-tight text-foreground">
                 {formatDuration(avgDailyWatchTime)}
               </p>
               <p className="text-xs text-muted-foreground">per day when active</p>
@@ -300,26 +227,55 @@ export const FunFacts = ({
           </div>
         </StatCard>
 
+        <StatCard delay={0.27} className="group">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-pink/20 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
+              <AlarmClock className="w-6 h-6 text-pink" />
+            </div>
+            <div>
+              <p className="text-muted-foreground text-sm">Prime Time</p>
+              <p className="font-display text-4xl font-extrabold tracking-tight text-foreground">{formatPeakHour(peakHour)}</p>
+              <p className="text-xs text-muted-foreground">{isGroup ? "the server's" : "your"} most-watched hour</p>
+            </div>
+          </div>
+        </StatCard>
+
         {mostBingedDay && (
-          <StatCard delay={0.3}>
+          <StatCard delay={0.3} className="group">
             <div className="flex items-start gap-4">
-              <div className="p-3 rounded-xl bg-green/20">
+              <div className="p-3 rounded-xl bg-green/20 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
                 <Sun className="w-6 h-6 text-green" />
               </div>
               <div>
                 <p className="text-muted-foreground text-sm mb-1">Most Epic Day</p>
-                <p className="text-2xl font-bold text-foreground">{formatDuration(mostBingedDay.duration)}</p>
+                <p className="font-display text-3xl font-extrabold tracking-tight text-foreground">{formatDuration(mostBingedDay.duration)}</p>
                 <p className="text-xs text-muted-foreground">{mostBingedDay.date}</p>
               </div>
             </div>
           </StatCard>
         )}
 
+        {longestBinge && (
+          <StatCard delay={0.35} className="group">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-xl bg-cyan/20 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
+                <Hourglass className="w-6 h-6 text-cyan" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-muted-foreground text-sm mb-1">Longest Session</p>
+                <p className="font-display text-3xl font-extrabold tracking-tight text-foreground">{formatDuration(longestBinge.duration)}</p>
+                <ScrollingText text={longestBinge.title} className="text-sm text-foreground" />
+                <p className="text-xs text-muted-foreground">{longestBinge.date}</p>
+              </div>
+            </div>
+          </StatCard>
+        )}
+
         {mostActiveDay && (
-          <StatCard delay={0.4}>
+          <StatCard delay={0.4} className="group">
             <div className="text-center py-2">
               <p className="text-muted-foreground text-sm mb-2">Your Power Day</p>
-              <p className="text-4xl font-extrabold gradient-text">{mostActiveDay.day}</p>
+              <p className="font-display text-5xl font-extrabold tracking-tight gradient-value">{mostActiveDay.day}</p>
               <p className="text-sm text-muted-foreground mt-2">
                 {mostActiveDay.hours}h total watch time
               </p>
@@ -327,11 +283,11 @@ export const FunFacts = ({
           </StatCard>
         )}
 
-        <StatCard delay={0.5}>
+        <StatCard delay={0.5} className="group">
           <div className="text-center py-2">
             <p className="text-muted-foreground text-sm mb-2">Unique Titles</p>
-            <p className="text-4xl font-extrabold gradient-text">
-              <AnimatedNumber value={uniqueTitles} />
+            <p className="font-display text-5xl font-extrabold tracking-tight gradient-value">
+              <AnimatedNumber value={uniqueTitles} grouping />
             </p>
             <p className="text-sm text-muted-foreground mt-2">You're quite the explorer!</p>
           </div>

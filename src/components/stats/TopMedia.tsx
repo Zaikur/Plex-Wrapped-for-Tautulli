@@ -1,34 +1,54 @@
-import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { TopMediaReveal } from "./TopMediaReveal";
-import { TautulliConfig } from "@/types/tautulli";
+import { SectionHeader } from "./SectionHeader";
+import type { RunnerUp } from "./RunnersUp";
 import { getImageUrl } from "@/lib/tautulli";
+import type { WrappedStats } from "@/types/tautulli";
 
 interface TopMediaProps {
-  topMovie: { title: string; year: number; watchCount: number; totalTime: number; thumb?: string; userCount?: number } | null;
-  topShow: { title: string; watchCount: number; totalTime: number; episodeCount: number; thumb?: string; userCount?: number } | null;
-  config?: TautulliConfig;
+  topMovie: WrappedStats["topMovie"];
+  topShow: WrappedStats["topShow"];
+  /** The top 5s: places 2–5 slide out under the #1 tiles */
+  topMovies?: WrappedStats["topMovies"];
+  topShows?: WrappedStats["topShows"];
+  /** Everyone's report: titles are ranked by how many people watched them, so show that */
+  showViewers?: boolean;
   skipAnimations?: boolean;
 }
 
-export const TopMedia = ({ topMovie, topShow, config, skipAnimations = false }: TopMediaProps) => {
+// Everything in the top 5 except #1 (the list's first entry is the top title itself)
+const others = <T extends { title: string }>(list: T[], top: { title: string }) =>
+  list.filter((item) => item.title !== top.title).slice(0, 4);
+
+export const TopMedia = ({ topMovie, topShow, topMovies = [], topShows = [], showViewers = false, skipAnimations = false }: TopMediaProps) => {
+  const viewers = (count: number) => (showViewers ? ` · ${count} ${count === 1 ? "viewer" : "viewers"}` : "");
+
+  const movieRunnersUp: RunnerUp[] = topMovie
+    ? others(topMovies, topMovie).map((movie) => ({
+        title: movie.title,
+        detail: `${movie.year}${viewers(movie.userCount)}`,
+        totalTime: movie.totalTime,
+        plays: movie.watchCount,
+        thumb: movie.thumb,
+      }))
+    : [];
+  const showRunnersUp: RunnerUp[] = topShow
+    ? others(topShows, topShow).map((show) => ({
+        title: show.title,
+        detail: `${show.episodeCount} episodes${viewers(show.userCount)}`,
+        totalTime: show.totalTime,
+        thumb: show.thumb,
+      }))
+    : [];
+  // The bars compare against the longest watch time in each top 5 (in everyone's report the
+  // ranking is by viewers, so #1 isn't always the longest)
+  const longest = (times: number[]) => Math.max(...times, 1);
+
   return (
     <div className="space-y-8">
-      <div className="text-center mb-8">
-        <motion.div
-          initial={{ rotate: -10, scale: 0 }}
-          whileInView={{ rotate: 0, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ type: "spring", stiffness: 200 }}
-          className="inline-flex items-center justify-center w-14 h-14 rounded-2xl gradient-bg mb-4"
-        >
-          <Sparkles className="w-7 h-7 text-primary" />
-        </motion.div>
-        <h2 className="text-3xl font-bold gradient-text">Your Top Picks</h2>
-        <p className="text-muted-foreground mt-2">Tap to reveal your favorites</p>
-      </div>
+      <SectionHeader icon={Sparkles} title="Your Top Picks" subtitle="Tap to reveal your favorites" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {topMovie && (
           <TopMediaReveal
             type="movie"
@@ -36,9 +56,11 @@ export const TopMedia = ({ topMovie, topShow, config, skipAnimations = false }: 
             subtitle={`${topMovie.year}`}
             watchTime={topMovie.totalTime}
             playCount={topMovie.watchCount}
-            userCount={topMovie.userCount}
-            imageUrl={config && topMovie.thumb ? getImageUrl(config, topMovie.thumb) : undefined}
+            userCount={showViewers ? topMovie.userCount : undefined}
+            imageUrl={topMovie.thumb ? getImageUrl(topMovie.thumb) : undefined}
             skipAnimations={skipAnimations}
+            runnersUp={movieRunnersUp}
+            maxTime={longest([topMovie.totalTime, ...movieRunnersUp.map((r) => r.totalTime)])}
           />
         )}
 
@@ -49,9 +71,11 @@ export const TopMedia = ({ topMovie, topShow, config, skipAnimations = false }: 
             subtitle={`${topShow.episodeCount} episodes watched`}
             watchTime={topShow.totalTime}
             playCount={topShow.watchCount}
-            userCount={topShow.userCount}
-            imageUrl={config && topShow.thumb ? getImageUrl(config, topShow.thumb) : undefined}
+            userCount={showViewers ? topShow.userCount : undefined}
+            imageUrl={topShow.thumb ? getImageUrl(topShow.thumb) : undefined}
             skipAnimations={skipAnimations}
+            runnersUp={showRunnersUp}
+            maxTime={longest([topShow.totalTime, ...showRunnersUp.map((r) => r.totalTime)])}
           />
         )}
       </div>

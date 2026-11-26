@@ -1,11 +1,21 @@
+/* Must come first: browsers ignore an @import after other rules (and the build drops it) */
+/* Kanit, VT323, Permanent Marker and Archivo Black are for the VHS Rewind and Rental Night themes
+   (font files only download once a theme uses them) */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Kanit:ital,wght@0,700;0,800;1,700;1,800&family=VT323&family=Permanent+Marker&family=Archivo+Black&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
+/* Themes: picked in the Admin Panel and set as data-theme on <html> (server/pwa.ts, lib/applyTheme.ts).
+   Every theme block sets every colour, so a [data-theme] element inside another theme (the
+   picker's previews) gets the whole theme. The exported images have their own copy of these
+   colours in lib/themes.ts: keep the two in step.
+   --cyan, --purple and --pink are the three gradient colours; other themes keep the names. */
 @layer base {
-  :root {
+  /* Default */
+  :root,
+  [data-theme="default"] {
     --background: 240 10% 4%;
     --foreground: 0 0% 98%;
 
@@ -57,6 +67,406 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 240 10% 15%;
     --sidebar-ring: 173 80% 50%;
+
+    /* How strongly glows and the background colour fields shine */
+    --glow-strength: 1;
+
+    /* The lights drifting through the hero (Motes.tsx); --mote-scale sizes them, --mote-pace slows them */
+    --mote-1: 173 80% 50%;
+    --mote-2: 280 80% 55%;
+    --mote-3: 326 80% 60%;
+    --mote-animation: mote-rise;
+    --mote-easing: linear;
+    --mote-scale: 1;
+    --mote-pace: 1;
+    /* "block" mixes crystal snowflakes in among the lights, pops the odd piece of popcorn up
+       among them, or flicks white tape dropouts across the hero */
+    --mote-crystal-display: none;
+    --mote-popcorn-display: none;
+    --mote-dropout-display: none;
+
+    /* The confetti's gold */
+    --sparkle: 43 96% 62%;
+
+    /* The comfort watch's heart */
+    --heart: 326 80% 60%;
+
+    /* The hour heatmap's tiles */
+    --heat: 173 80% 50%;
+
+    /* Big gradient titles (gradient-text) and the stat cards' frames */
+    --brand-gradient: linear-gradient(135deg, hsl(var(--cyan)) 0%, hsl(var(--purple)) 50%, hsl(var(--pink)) 100%);
+    /* Big gradient numbers and results (gradient-value); a theme can keep them plainer than its titles */
+    --value-gradient: var(--brand-gradient);
+
+    /* Big headlines and numbers (font-display) */
+    --font-display: 'Bricolage Grotesque', 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-display-style: normal;
+    --font-display-synthesis: weight style;
+
+    /* The gift (GiftBox.tsx): wrapping paper, the inside of the box, the ribbon and the bow */
+    --gift-movie-a: 25 95% 55%;
+    --gift-movie-b: 330 82% 56%;
+    --gift-show-a: 173 80% 42%;
+    --gift-show-b: 275 75% 55%;
+    --gift-inside-a: 240 12% 9%;
+    --gift-inside-b: 240 10% 18%;
+    --ribbon-dark: 36 90% 38%;
+    --ribbon-light: 45 100% 72%;
+    --ribbon-mid: 44 96% 56%;
+    --ribbon-shine: 46 100% 76%;
+    --ribbon-edge: 36 80% 28%;
+    --bow-1: 49 100% 87%;
+    --bow-2: 44 92% 63%;
+    --bow-3: 42 87% 47%;
+    --bow-4: 38 96% 36%;
+    --bow-shade: 38 96% 31%;
+  }
+
+  /* Plex Gold: Plex amber, orange and ember red on warm charcoal */
+  [data-theme="gold"] {
+    --background: 30 20% 4%;
+    --foreground: 38 52% 96%;
+    --card: 34 20% 7%;
+    --card-foreground: 38 52% 96%;
+    --popover: 34 20% 7%;
+    --popover-foreground: 38 52% 96%;
+    --primary: 41 89% 47%;
+    --primary-foreground: 30 20% 4%;
+    --secondary: 33 18% 12%;
+    --secondary-foreground: 38 52% 96%;
+    --muted: 33 15% 15%;
+    --muted-foreground: 35 14% 58%;
+    --accent: 8 78% 56%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 32 21% 15%;
+    --input: 32 21% 15%;
+    --ring: 41 89% 47%;
+
+    --orange: 32 95% 58%;
+    --yellow: 45 95% 58%;
+    --green: 95 40% 50%;
+    --blue: 205 55% 58%;
+    --purple: 25 95% 53%;
+    --pink: 8 78% 56%;
+    --cyan: 41 89% 47%;
+
+    --sidebar-background: 34 20% 7%;
+    --sidebar-foreground: 38 52% 96%;
+    --sidebar-primary: 41 89% 47%;
+    --sidebar-primary-foreground: 30 20% 4%;
+    --sidebar-accent: 33 18% 12%;
+    --sidebar-accent-foreground: 38 52% 96%;
+    --sidebar-border: 32 21% 15%;
+    --sidebar-ring: 41 89% 47%;
+
+    --glow-strength: 0.9;
+
+    --mote-1: 41 89% 52%;
+    --mote-2: 25 95% 58%;
+    --mote-3: 45 95% 65%;
+    --mote-animation: mote-rise;
+    --mote-easing: linear;
+    --mote-scale: 1;
+    --mote-pace: 1;
+    --mote-crystal-display: none;
+    --mote-popcorn-display: none;
+    --mote-dropout-display: none;
+
+    --sparkle: 45 95% 65%;
+
+    --heart: 8 78% 56%;
+
+    --heat: 41 89% 47%;
+
+    --brand-gradient: linear-gradient(135deg, hsl(var(--cyan)) 0%, hsl(var(--purple)) 50%, hsl(var(--pink)) 100%);
+    --value-gradient: var(--brand-gradient);
+
+    --font-display: 'Bricolage Grotesque', 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-display-style: normal;
+    --font-display-synthesis: weight style;
+
+    --gift-movie-a: 8 78% 52%;
+    --gift-movie-b: 6 75% 28%;
+    --gift-show-a: 41 89% 47%;
+    --gift-show-b: 26 90% 37%;
+    --gift-inside-a: 30 15% 8%;
+    --gift-inside-b: 30 12% 17%;
+    --ribbon-dark: 37 45% 37%;
+    --ribbon-light: 41 85% 89%;
+    --ribbon-mid: 39 61% 72%;
+    --ribbon-shine: 42 90% 93%;
+    --ribbon-edge: 37 45% 25%;
+    --bow-1: 42 90% 93%;
+    --bow-2: 40 75% 80%;
+    --bow-3: 38 55% 62%;
+    --bow-4: 36 45% 42%;
+    --bow-shade: 35 45% 32%;
+  }
+
+  /* Midnight Frost: ice blue, lavender and silver on deep navy, with softer glows and falling snow */
+  [data-theme="frost"] {
+    --background: 220 55% 10%;
+    --foreground: 215 80% 97%;
+    --card: 219 53% 13%;
+    --card-foreground: 215 80% 97%;
+    --popover: 219 53% 13%;
+    --popover-foreground: 215 80% 97%;
+    --primary: 199 95% 74%;
+    --primary-foreground: 220 55% 10%;
+    --secondary: 216 48% 17%;
+    --secondary-foreground: 215 80% 97%;
+    --muted: 216 40% 19%;
+    --muted-foreground: 216 30% 66%;
+    --accent: 230 93% 82%;
+    --accent-foreground: 220 55% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 216 42% 20%;
+    --input: 216 42% 20%;
+    --ring: 199 95% 74%;
+
+    /* Berry red: the festive touch (movie accents, flames, the bars that run into silver) */
+    --orange: 355 78% 64%;
+    --yellow: 45 90% 72%;
+    --green: 160 55% 60%;
+    --blue: 215 90% 66%;
+    --purple: 230 93% 82%;
+    --pink: 214 32% 91%;
+    --cyan: 199 95% 74%;
+
+    --sidebar-background: 219 53% 13%;
+    --sidebar-foreground: 215 80% 97%;
+    --sidebar-primary: 199 95% 74%;
+    --sidebar-primary-foreground: 220 55% 10%;
+    --sidebar-accent: 216 48% 17%;
+    --sidebar-accent-foreground: 215 80% 97%;
+    --sidebar-border: 216 42% 20%;
+    --sidebar-ring: 199 95% 74%;
+
+    --glow-strength: 0.65;
+
+    /* Snowflakes: bigger, slower, drifting down, with the odd crystal among them */
+    --mote-1: 0 0% 100%;
+    --mote-2: 210 40% 96%;
+    --mote-3: 199 95% 88%;
+    --mote-animation: snow-fall;
+    --mote-easing: ease-in-out;
+    --mote-scale: 1.6;
+    --mote-pace: 2;
+    --mote-crystal-display: block;
+    --mote-popcorn-display: none;
+    --mote-dropout-display: none;
+
+    --sparkle: 43 96% 62%;
+
+    /* Berry red, since this theme's pink is silver */
+    --heart: 355 78% 64%;
+
+    --heat: 199 95% 74%;
+
+    --brand-gradient: linear-gradient(135deg, hsl(var(--cyan)) 0%, hsl(var(--purple)) 50%, hsl(var(--pink)) 100%);
+    --value-gradient: var(--brand-gradient);
+
+    --font-display: 'Bricolage Grotesque', 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-display-style: normal;
+    --font-display-synthesis: weight style;
+
+    /* Icy paper with a red satin ribbon */
+    --gift-movie-a: 230 93% 82%;
+    --gift-movie-b: 240 60% 60%;
+    --gift-show-a: 199 95% 74%;
+    --gift-show-b: 210 70% 46%;
+    --gift-inside-a: 220 45% 9%;
+    --gift-inside-b: 220 35% 19%;
+    --ribbon-dark: 352 72% 32%;
+    --ribbon-light: 356 88% 70%;
+    --ribbon-mid: 354 78% 52%;
+    --ribbon-shine: 358 92% 78%;
+    --ribbon-edge: 350 70% 22%;
+    --bow-1: 358 95% 86%;
+    --bow-2: 356 85% 64%;
+    --bow-3: 354 76% 48%;
+    --bow-4: 350 72% 33%;
+    --bow-shade: 348 72% 25%;
+  }
+
+  /* VHS Rewind: a blank tape on a CRT. Black plastic, cream label paper and the tape sleeve's
+     rainbow stripes, with a camcorder's amber date stamp as the accent */
+  [data-theme="vhs"] {
+    --background: 30 8% 5%;
+    --foreground: 43 57% 89%;
+    --card: 30 5% 9%;
+    --card-foreground: 43 57% 89%;
+    --popover: 30 5% 9%;
+    --popover-foreground: 43 57% 89%;
+    --primary: 35 100% 55%;
+    --primary-foreground: 30 8% 5%;
+    --secondary: 30 6% 13%;
+    --secondary-foreground: 43 57% 89%;
+    --muted: 30 6% 16%;
+    --muted-foreground: 38 12% 59%;
+    --accent: 1 80% 55%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 34 7% 19%;
+    --input: 34 7% 19%;
+    --ring: 35 100% 55%;
+
+    --orange: 28 91% 54%;
+    --yellow: 45 100% 71%;
+    --green: 125 47% 47%;
+    --blue: 217 68% 52%;
+    --purple: 218 84% 62%;
+    --pink: 1 80% 55%;
+    --cyan: 43 100% 62%;
+
+    --sidebar-background: 30 5% 9%;
+    --sidebar-foreground: 43 57% 89%;
+    --sidebar-primary: 35 100% 55%;
+    --sidebar-primary-foreground: 30 8% 5%;
+    --sidebar-accent: 30 6% 13%;
+    --sidebar-accent-foreground: 43 57% 89%;
+    --sidebar-border: 34 7% 19%;
+    --sidebar-ring: 35 100% 55%;
+
+    --glow-strength: 0.5;
+
+    /* Specks of tape dust drifting up, and the odd dropout streaking across */
+    --mote-1: 0 0% 100%;
+    --mote-2: 43 57% 89%;
+    --mote-3: 0 0% 82%;
+    --mote-animation: mote-rise;
+    --mote-easing: linear;
+    --mote-scale: 0.8;
+    --mote-pace: 1.3;
+    --mote-crystal-display: none;
+    --mote-popcorn-display: none;
+    --mote-dropout-display: block;
+
+    --sparkle: 43 100% 62%;
+
+    --heart: 1 80% 55%;
+
+    --heat: 43 100% 62%;
+
+    /* The sleeve's hard-edged stripes, placed so all five land on the letters */
+    --brand-gradient: linear-gradient(180deg, hsl(1 80% 55%) 0 32%, hsl(28 91% 54%) 32% 46%, hsl(43 100% 62%) 46% 60%, hsl(125 47% 47%) 60% 74%, hsl(217 68% 52%) 74% 100%);
+    /* The stripes are for titles only: numbers and results take the date stamp's warm amber */
+    --value-gradient: linear-gradient(135deg, hsl(45 100% 71%) 0%, hsl(43 100% 62%) 45%, hsl(28 91% 54%) 100%);
+
+    /* Bold italic, like the logos on blank tapes */
+    --font-display: 'Kanit', 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-display-style: italic;
+    --font-display-synthesis: weight style;
+
+    /* Not shown (the tapes come in a case, components/stats/VhsCase.tsx), set for completeness */
+    --gift-movie-a: 0 0% 8%;
+    --gift-movie-b: 0 0% 3%;
+    --gift-show-a: 43 57% 89%;
+    --gift-show-b: 42 38% 82%;
+    --gift-inside-a: 30 8% 6%;
+    --gift-inside-b: 30 6% 14%;
+    --ribbon-dark: 1 75% 30%;
+    --ribbon-light: 3 90% 72%;
+    --ribbon-mid: 1 80% 55%;
+    --ribbon-shine: 4 95% 80%;
+    --ribbon-edge: 1 70% 20%;
+    --bow-1: 4 95% 86%;
+    --bow-2: 3 85% 66%;
+    --bow-3: 1 78% 50%;
+    --bow-4: 1 75% 33%;
+    --bow-shade: 0 72% 25%;
+  }
+
+  /* Rental Night: Friday night at the video store. Royal blue and the yellow ticket stub */
+  [data-theme="rental"] {
+    --background: 224 85% 16%;
+    --foreground: 0 0% 100%;
+    --card: 223 82% 21%;
+    --card-foreground: 0 0% 100%;
+    --popover: 223 82% 21%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 40 100% 51%;
+    --primary-foreground: 221 86% 36%;
+    --secondary: 223 79% 28%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 223 60% 26%;
+    --muted-foreground: 222 56% 81%;
+    --accent: 222 100% 78%;
+    --accent-foreground: 221 86% 25%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 222 62% 30%;
+    --input: 222 62% 30%;
+    --ring: 40 100% 51%;
+
+    --orange: 39 100% 64%;
+    --yellow: 42 100% 71%;
+    --green: 151 57% 60%;
+    --blue: 223 100% 68%;
+    --purple: 222 100% 78%;
+    --pink: 0 0% 100%;
+    --cyan: 40 100% 51%;
+
+    --sidebar-background: 223 82% 21%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 40 100% 51%;
+    --sidebar-primary-foreground: 221 86% 36%;
+    --sidebar-accent: 223 79% 28%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 222 62% 30%;
+    --sidebar-ring: 40 100% 51%;
+
+    --glow-strength: 0.4;
+
+    /* Warm dust in the store lights, and now and then a piece of popcorn popping up */
+    --mote-1: 44 100% 85%;
+    --mote-2: 0 0% 100%;
+    --mote-3: 42 100% 71%;
+    --mote-animation: mote-rise;
+    --mote-easing: linear;
+    --mote-scale: 1;
+    --mote-pace: 1.2;
+    --mote-crystal-display: none;
+    --mote-popcorn-display: block;
+    --mote-dropout-display: none;
+
+    --sparkle: 40 100% 51%;
+
+    --heart: 40 100% 51%;
+
+    /* White: yellow tiles over blue turned a muddy green */
+    --heat: 0 0% 100%;
+
+    --brand-gradient: linear-gradient(135deg, hsl(42 100% 71%) 0%, hsl(40 100% 51%) 50%, hsl(33 100% 47%) 100%);
+    --value-gradient: var(--brand-gradient);
+
+    /* Archivo Black comes in one weight: no faux bold on top of it */
+    --font-display: 'Archivo Black', 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-display-style: normal;
+    --font-display-synthesis: none;
+
+    /* Not shown (the tapes come in a rental case, components/stats/VhsCase.tsx), set for completeness */
+    --gift-movie-a: 221 86% 36%;
+    --gift-movie-b: 221 89% 25%;
+    --gift-show-a: 0 0% 100%;
+    --gift-show-b: 221 86% 36%;
+    --gift-inside-a: 224 85% 12%;
+    --gift-inside-b: 223 60% 22%;
+    --ribbon-dark: 38 100% 36%;
+    --ribbon-light: 45 100% 77%;
+    --ribbon-mid: 40 100% 51%;
+    --ribbon-shine: 45 100% 85%;
+    --ribbon-edge: 38 100% 25%;
+    --bow-1: 45 100% 88%;
+    --bow-2: 43 100% 68%;
+    --bow-3: 40 100% 51%;
+    --bow-4: 37 100% 36%;
+    --bow-shade: 35 100% 28%;
   }
 }
 
@@ -76,14 +486,16 @@
 }
 
 @layer utilities {
+  /* Titles in the brand gradient */
   .gradient-text {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(
-      135deg,
-      hsl(var(--cyan)) 0%,
-      hsl(var(--purple)) 50%,
-      hsl(var(--pink)) 100%
-    );
+    background-image: var(--brand-gradient);
+  }
+
+  /* Numbers and results: the same gradient, except in themes that keep them plainer (VHS Rewind) */
+  .gradient-value {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--value-gradient);
   }
 
   .gradient-bg {
@@ -95,47 +507,38 @@
     );
   }
 
+  /* The frame is a real border filled by a border-box gradient. A masked 1px overlay
+     dropped line segments wherever an edge fell between pixels (e.g. 125% display scaling). */
+  /* --mx/--my (set by StatCard while the mouse is over it) add a soft spotlight inside the
+     card and a bright spot on the frame near the cursor. Far off-card by default, so invisible. */
   .gradient-border {
+    --gradient-border-fill: linear-gradient(hsl(var(--card)), hsl(var(--card)));
     position: relative;
-    background: hsl(var(--card));
+    border: 1px solid transparent;
     border-radius: var(--radius);
-  }
-
-  .gradient-border::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    padding: 1px;
-    border-radius: inherit;
-    background: linear-gradient(
-      135deg,
-      hsl(var(--cyan)) 0%,
-      hsl(var(--purple)) 50%,
-      hsl(var(--pink)) 100%
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
+    background:
+      radial-gradient(420px circle at var(--mx, -9999px) var(--my, -9999px), hsl(0 0% 100% / 0.055), transparent 60%) padding-box,
+      var(--gradient-border-fill) padding-box,
+      radial-gradient(220px circle at var(--mx, -9999px) var(--my, -9999px), hsl(0 0% 100% / 0.75), transparent 70%) border-box,
+      var(--brand-gradient) border-box;
   }
 
   .glow {
-    box-shadow: 
-      0 0 20px hsl(var(--cyan) / 0.3),
-      0 0 40px hsl(var(--purple) / 0.2),
-      0 0 60px hsl(var(--pink) / 0.1);
+    box-shadow:
+      0 0 20px hsl(var(--cyan) / calc(0.3 * var(--glow-strength))),
+      0 0 40px hsl(var(--purple) / calc(0.2 * var(--glow-strength))),
+      0 0 60px hsl(var(--pink) / calc(0.1 * var(--glow-strength)));
   }
 
   .glow-text {
-    text-shadow: 
-      0 0 20px hsl(var(--cyan) / 0.5),
-      0 0 40px hsl(var(--purple) / 0.3);
+    text-shadow:
+      0 0 20px hsl(var(--cyan) / calc(0.5 * var(--glow-strength))),
+      0 0 40px hsl(var(--purple) / calc(0.3 * var(--glow-strength)));
   }
 
   .stat-card {
     @apply gradient-border p-6 md:p-8;
-    background: linear-gradient(
+    --gradient-border-fill: linear-gradient(
       180deg,
       hsl(var(--card)) 0%,
       hsl(var(--background)) 100%
@@ -156,16 +559,705 @@
   }
 
   @keyframes pulse-glow {
-    0%, 100% { 
-      box-shadow: 0 0 20px hsl(var(--cyan) / 0.3);
+    0%, 100% {
+      box-shadow: 0 0 20px hsl(var(--cyan) / calc(0.3 * var(--glow-strength)));
     }
-    50% { 
-      box-shadow: 0 0 40px hsl(var(--cyan) / 0.5), 0 0 60px hsl(var(--purple) / 0.3);
+    50% {
+      box-shadow: 0 0 40px hsl(var(--cyan) / calc(0.5 * var(--glow-strength))), 0 0 60px hsl(var(--purple) / calc(0.3 * var(--glow-strength)));
     }
   }
 
   .bg-noise {
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    /* Drawn once as a small tile (it stitches seamlessly) rather than as one screen-sized image */
+    background-size: 256px 256px;
     opacity: 0.03;
   }
+
+  /* The brand gradient, slowly panning */
+  .gradient-text-animated {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(
+      100deg,
+      hsl(var(--cyan)) 0%,
+      hsl(var(--purple)) 25%,
+      hsl(var(--pink)) 50%,
+      hsl(var(--purple)) 75%,
+      hsl(var(--cyan)) 100%
+    );
+    background-size: 200% 100%;
+    animation: gradient-pan 8s linear infinite;
+  }
+
+  @keyframes gradient-pan {
+    from { background-position: 0% 50%; }
+    to { background-position: -200% 50%; }
+  }
+
+  /* Faint "ghost" letters (a text stroke would show the overlapping contours of variable fonts) */
+  .text-ghost {
+    color: hsl(var(--foreground) / 0.13);
+  }
+
+  /* Gold, with a highlight sweeping across now and then */
+  .gold-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(
+      110deg,
+      hsl(38 92% 50%) 0%,
+      hsl(45 100% 70%) 40%,
+      hsl(0 0% 100%) 50%,
+      hsl(45 100% 70%) 60%,
+      hsl(38 92% 50%) 100%
+    );
+    background-size: 250% 100%;
+    animation: gold-sweep 4s ease-in-out infinite;
+  }
+
+  @keyframes gold-sweep {
+    0%, 60% { background-position: 100% 50%; }
+    100% { background-position: -150% 50%; }
+  }
+
+  /* Text with a light sweeping across (loading messages) */
+  .shimmer-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(
+      90deg,
+      hsl(var(--muted-foreground)) 0%,
+      hsl(var(--muted-foreground)) 40%,
+      hsl(var(--foreground)) 50%,
+      hsl(var(--muted-foreground)) 60%,
+      hsl(var(--muted-foreground)) 100%
+    );
+    background-size: 300% 100%;
+    animation: shimmer-pan 2.4s linear infinite;
+  }
+
+  @keyframes shimmer-pan {
+    from { background-position: 100% 50%; }
+    to { background-position: -50% 50%; }
+  }
+
+  /* A diagonal light sweep across an element on hover (.shine-once plays it once) */
+  .shine {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shine::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    bottom: -50%;
+    left: -60%;
+    width: 40%;
+    background: linear-gradient(100deg, transparent, hsl(0 0% 100% / 0.35), transparent);
+    transform: translateX(0) skewX(-20deg);
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .shine:hover::after,
+  .shine-once::after {
+    animation: shine-sweep 1.1s cubic-bezier(0.16, 1, 0.3, 1) var(--shine-delay, 0s) forwards;
+  }
+
+  @keyframes shine-sweep {
+    0% { transform: translateX(0) skewX(-20deg); opacity: 0; }
+    15% { opacity: 1; }
+    100% { transform: translateX(450%) skewX(-20deg); opacity: 0; }
+  }
+
+  .animate-spin-slow {
+    animation: spin 12s linear infinite;
+  }
+
+  /* A round glow's soft edge, from a mask instead of a blur: a blur on something that spins is
+     redone every frame, a mask is drawn once (--soft-from: how far out it stays solid) */
+  .soft-edge {
+    -webkit-mask-image: radial-gradient(closest-side, #000 var(--soft-from, 30%), transparent);
+    mask-image: radial-gradient(closest-side, #000 var(--soft-from, 30%), transparent);
+  }
+
+  .animate-spin-slow-reverse {
+    animation: spin 18s linear infinite reverse;
+  }
+
+  .animate-twinkle {
+    animation: twinkle 2.4s ease-in-out infinite;
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.25; transform: scale(0.7) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1.1) rotate(45deg); }
+  }
+
+  /* A progress bar with no known end: a light band sliding across */
+  .indeterminate-bar {
+    background: linear-gradient(90deg, transparent, hsl(var(--cyan)), hsl(var(--purple)), hsl(var(--pink)), transparent);
+    background-size: 50% 100%;
+    background-repeat: no-repeat;
+    animation: indeterminate 1.6s ease-in-out infinite;
+  }
+
+  @keyframes indeterminate {
+    from { background-position: -100% 0; }
+    to { background-position: 200% 0; }
+  }
+}
+
+/* Ambient background: huge, soft colour fields drifting behind everything */
+.ambient-blob {
+  position: absolute;
+  width: 75vmax;
+  height: 75vmax;
+  border-radius: 9999px;
+  will-change: transform;
+}
+
+.ambient-blob-1 {
+  top: -30vmax;
+  left: -25vmax;
+  background: radial-gradient(closest-side, hsl(var(--cyan) / calc(0.16 * var(--glow-strength))), transparent);
+  animation: aurora-1 34s ease-in-out infinite alternate;
+}
+
+.ambient-blob-2 {
+  top: 10vh;
+  right: -35vmax;
+  background: radial-gradient(closest-side, hsl(var(--purple) / calc(0.2 * var(--glow-strength))), transparent);
+  animation: aurora-2 41s ease-in-out infinite alternate;
+}
+
+.ambient-blob-3 {
+  bottom: -40vmax;
+  left: 5vw;
+  background: radial-gradient(closest-side, hsl(var(--pink) / calc(0.14 * var(--glow-strength))), transparent);
+  animation: aurora-3 29s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-1 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(14vw, 10vh, 0) scale(1.15); }
+  100% { transform: translate3d(5vw, 28vh, 0) scale(0.95); }
+}
+
+@keyframes aurora-2 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-16vw, 18vh, 0) scale(0.9); }
+  100% { transform: translate3d(-6vw, -12vh, 0) scale(1.1); }
+}
+
+@keyframes aurora-3 {
+  0% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50% { transform: translate3d(20vw, -14vh, 0) scale(0.9); }
+  100% { transform: translate3d(-8vw, -6vh, 0) scale(1.15); }
+}
+
+.ambient-vignette {
+  background: radial-gradient(ellipse at center, transparent 45%, hsl(var(--background) / 0.75) 100%);
+}
+
+/* Tiny lights rising through the hero (or, with Midnight Frost, snow falling through it) */
+.mote {
+  position: absolute;
+  bottom: -10px;
+  width: calc(var(--mote-size, 3px) * var(--mote-scale, 1));
+  height: calc(var(--mote-size, 3px) * var(--mote-scale, 1));
+  border-radius: 9999px;
+  background: hsl(var(--mote-color, var(--mote-1)));
+  box-shadow: 0 0 10px 2px hsl(var(--mote-color, var(--mote-1)) / 0.6);
+  opacity: 0;
+  animation: var(--mote-animation, mote-rise) calc(var(--mote-duration, 14s) * var(--mote-pace, 1)) var(--mote-easing, linear) infinite;
+  animation-delay: calc(var(--mote-delay, 0s) * var(--mote-pace, 1));
+}
+
+@keyframes mote-rise {
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  10% { opacity: 0.8; }
+  80% { opacity: 0.5; }
+  100% { transform: translate3d(var(--mote-drift, 20px), -105vh, 0); opacity: 0; }
+}
+
+/* From the top down, swaying from side to side */
+@keyframes snow-fall {
+  0% { transform: translate3d(0, -105vh, 0); opacity: 0; }
+  8% { opacity: 0.9; }
+  25% { transform: translate3d(var(--mote-sway, 20px), -79vh, 0); }
+  50% { transform: translate3d(calc(var(--mote-sway, 20px) * -0.6), -53vh, 0); }
+  75% { transform: translate3d(calc(var(--mote-sway, 20px) * 0.8), -26vh, 0); }
+  90% { opacity: 0.7; }
+  100% { transform: translate3d(calc(var(--mote-sway, 20px) * -0.2), 0, 0); opacity: 0; }
+}
+
+/* The occasional crystal snowflake, slowly turning (only themes that set --mote-crystal-display) */
+.mote-crystal {
+  display: var(--mote-crystal-display, none);
+  background: none;
+  box-shadow: none;
+  color: hsl(var(--mote-color, var(--mote-1)));
+  filter: drop-shadow(0 0 3px hsl(var(--mote-color, var(--mote-1)) / 0.8));
+}
+
+.mote-crystal svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: crystal-spin var(--crystal-spin, 12s) linear infinite;
+}
+
+@keyframes crystal-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Now and then a piece of popcorn pops up among the lights (themes that set --mote-popcorn-display) */
+.mote-popcorn {
+  display: var(--mote-popcorn-display, none);
+  width: var(--mote-size, 16px);
+  height: var(--mote-size, 16px);
+  background: none;
+  box-shadow: none;
+  filter: drop-shadow(0 0 4px rgb(255 220 150 / 0.45));
+  animation: popcorn-pop var(--mote-duration, 14s) infinite;
+  animation-delay: var(--mote-delay, 0s);
+}
+
+/* Up in an arc, slowing at the top, back down, then out of sight for the rest of the cycle */
+@keyframes popcorn-pop {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; animation-timing-function: cubic-bezier(0.15, 0.6, 0.35, 1); }
+  3% { opacity: 1; }
+  24% { transform: translate3d(calc(var(--mote-drift, 20px) * 0.5), var(--pop-height, -50vh), 0) rotate(160deg); animation-timing-function: cubic-bezier(0.6, 0, 0.85, 0.4); }
+  44% { opacity: 1; }
+  48%, 100% { transform: translate3d(var(--mote-drift, 20px), 0, 0) rotate(330deg); opacity: 0; }
+}
+
+/* A white tape dropout flicking across the picture (themes that set --mote-dropout-display) */
+.mote-dropout {
+  display: var(--mote-dropout-display, none);
+  position: absolute;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.9) 20%, rgb(255 255 255 / 0.9) 80%, transparent);
+  opacity: 0;
+  animation: dropout-flicker var(--mote-duration, 7s) steps(1, end) infinite;
+  animation-delay: var(--mote-delay, 0s);
+}
+
+@keyframes dropout-flicker {
+  0%, 89%, 97%, 100% { opacity: 0; transform: translateX(0); }
+  90% { opacity: 0.85; transform: translateX(0); }
+  92% { opacity: 0.4; transform: translateX(6px); }
+  94% { opacity: 0.8; transform: translateX(-4px); }
+}
+
+/* ---------- The 3D gift (GiftBox.tsx) ---------- */
+.gift-3d {
+  transform-style: preserve-3d;
+}
+
+.gift-face {
+  position: absolute;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+}
+
+/* Wrapping paper: little dots over satin stripes */
+.gift-paper {
+  background-color: var(--paper-a);
+  background-image:
+    radial-gradient(circle at 30% 30%, hsl(0 0% 100% / 0.4) 0 1.6px, transparent 2.4px),
+    radial-gradient(circle at 80% 75%, hsl(0 0% 100% / 0.28) 0 1px, transparent 1.8px),
+    repeating-linear-gradient(135deg, hsl(0 0% 100% / 0.08) 0 5px, transparent 5px 13px),
+    linear-gradient(135deg, var(--paper-a), var(--paper-b));
+  background-size: 20px 20px, 20px 20px, auto, 100% 100%;
+}
+
+.gift-paper-movie {
+  --paper-a: hsl(var(--gift-movie-a));
+  --paper-b: hsl(var(--gift-movie-b));
+}
+
+.gift-paper-show {
+  --paper-a: hsl(var(--gift-show-a));
+  --paper-b: hsl(var(--gift-show-b));
+}
+
+.gift-inside {
+  position: absolute;
+  background: linear-gradient(to bottom, hsl(var(--gift-inside-a)), hsl(var(--gift-inside-b)));
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Satin ribbon, gold in the default theme: a fine woven edge on each side, a faint weave along
+   its length, and a soft sheen across it */
+.gift-ribbon {
+  background:
+    linear-gradient(
+      90deg,
+      hsl(var(--ribbon-edge) / 0.7) 0 1px,
+      hsl(var(--ribbon-shine) / 0.6) 1px 2px,
+      transparent 2px calc(100% - 2px),
+      hsl(var(--ribbon-shine) / 0.35) calc(100% - 2px) calc(100% - 1px),
+      hsl(var(--ribbon-edge) / 0.7) calc(100% - 1px)
+    ),
+    repeating-linear-gradient(90deg, hsl(0 0% 100% / 0.07) 0 1px, transparent 1px 3px),
+    linear-gradient(
+      90deg,
+      hsl(var(--ribbon-dark)) 0%,
+      hsl(var(--ribbon-light)) 24%,
+      hsl(var(--ribbon-mid)) 50%,
+      hsl(var(--ribbon-shine)) 76%,
+      hsl(var(--ribbon-dark)) 100%
+    );
+}
+
+/* The satin's glint, brightest nearest the light above (GiftBox.tsx sets how much shows) */
+.gift-ribbon-glint {
+  background: linear-gradient(to bottom, hsl(var(--ribbon-shine) / 0.7), hsl(var(--ribbon-shine) / 0.25) 70%, hsl(var(--ribbon-shine) / 0.1));
+}
+
+/* The ribbon's cut edges, seen as the box turns */
+.gift-ribbon-edge {
+  background: hsl(var(--ribbon-dark));
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* The shadow the ribbon casts on the paper either side of it (no blur: it mustn't spill past the
+   paper's edge) */
+.gift-ribbon-shadow {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(0 0% 0% / 0.38) 3px calc(100% - 5px),
+    transparent
+  );
+}
+
+/* The bow's loose tails lie on the lid, a little off it */
+.gift-bow-tail {
+  filter: drop-shadow(1px 2px 1.5px hsl(0 0% 0% / 0.45));
+}
+
+/* Light falling from the top left */
+.gift-shade-front { background: linear-gradient(to bottom, transparent 30%, hsl(0 0% 0% / 0.22)); }
+.gift-shade-side { background: linear-gradient(to bottom, hsl(0 0% 0% / 0.3), hsl(0 0% 0% / 0.5)); }
+.gift-shade-back { background: hsl(0 0% 0% / 0.35); }
+.gift-shade-top { background: linear-gradient(135deg, hsl(0 0% 100% / 0.22), transparent 60%); }
+
+/* Light rays bursting out of the open box */
+.gift-rays {
+  background: repeating-conic-gradient(from 0deg, hsl(var(--ray) / 0.55) 0deg 7deg, transparent 7deg 22deg);
+  -webkit-mask-image: radial-gradient(circle, black 0%, black 18%, transparent 68%);
+  mask-image: radial-gradient(circle, black 0%, black 18%, transparent 68%);
+  border-radius: 9999px;
+}
+
+/* The back of the poster as it rises out of the box */
+.poster-back {
+  background-color: hsl(var(--card));
+  background-image:
+    radial-gradient(circle at 50% 50%, hsl(var(--ray) / 0.45), transparent 70%),
+    repeating-linear-gradient(45deg, hsl(0 0% 100% / 0.06) 0 6px, transparent 6px 14px);
+}
+
+/* ---------- Titles too long for their row (ScrollingText.tsx) ---------- */
+/* Glides to the end, pauses, glides back; the edges fade so it reads as a window onto the title */
+.animate-scroll-text {
+  animation: scroll-text var(--scroll-duration, 6s) ease-in-out infinite alternate;
+}
+
+@keyframes scroll-text {
+  0%, 20% { transform: translateX(0); }
+  80%, 100% { transform: translateX(var(--scroll-distance, 0)); }
+}
+
+.scroll-text-overflowing {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, black 6px, black calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, black 6px, black calc(100% - 14px), transparent 100%);
+}
+
+/* The runners-up drawer under a top movie/show tile: lit from above, in the tile's shadow */
+.runner-drawer {
+  background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
+  box-shadow: inset 0 22px 22px -18px rgb(0 0 0 / 0.9);
+}
+
+/* ---------- Page polish ---------- */
+::selection {
+  background: hsl(var(--pink) / 0.35);
+  color: hsl(var(--foreground));
+}
+
+html {
+  scrollbar-color: hsl(var(--purple) / 0.5) transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(hsl(var(--cyan) / 0.6), hsl(var(--purple) / 0.6), hsl(var(--pink) / 0.6));
+  border-radius: 9999px;
+  border: 3px solid hsl(var(--background));
+}
+
+/* ---------- Theme fonts and scenery ---------- */
+/* Big headlines and numbers in the theme's display font (tailwind.config.ts: font-display) */
+.font-display {
+  font-style: var(--font-display-style, normal);
+  font-synthesis: var(--font-display-synthesis, weight style);
+}
+
+/* VHS Rewind: colour bleeding on a worn tape instead of a glow (a text-shadow would paint over
+   the striped letters, a drop-shadow sits behind them) */
+[data-theme="vhs"] .glow-text {
+  text-shadow: none;
+  filter: drop-shadow(-3px 0 0 rgb(255 45 85 / 0.7)) drop-shadow(3px 0 0 rgb(40 200 255 / 0.6));
+}
+
+/* VHS Rewind: the report's title hand-written on the tape's label */
+[data-theme="vhs"] .hero-title {
+  display: table;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0.14em 0.6em 0.04em;
+  border-radius: 4px;
+  font-family: 'Permanent Marker', cursive;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #1b1b1b;
+  background-color: #f3ead3;
+  background-image: repeating-linear-gradient(180deg, transparent 0 0.62em, rgb(47 111 216 / 0.35) 0.62em calc(0.62em + 1px));
+  box-shadow: 0 8px 20px rgb(0 0 0 / 0.5);
+  transform: rotate(-2deg);
+}
+
+/* VHS Rewind: the tracking band rolling up the screen */
+.vhs-tracking {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 18px;
+  background:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.12) 0 3px, transparent 3px 9px),
+    linear-gradient(180deg, transparent, rgb(255 255 255 / 0.1), transparent);
+  animation: vhs-tracking 11s linear infinite;
+}
+
+@keyframes vhs-tracking {
+  from { transform: translateY(105vh); }
+  to { transform: translateY(-10vh); }
+}
+
+/* Rental Night: the year on the yellow ticket stub, with notched corners and a tear-off line.
+   .ticket-notched notches any element (--notch sets the size). */
+.ticket-notched,
+[data-theme="rental"] .hero-year-ticket {
+  --notch-in: calc(var(--notch, 13px) + 0.5px);
+  -webkit-mask-image:
+    radial-gradient(circle at 0 0, transparent var(--notch, 13px), #000 var(--notch-in)),
+    radial-gradient(circle at 100% 0, transparent var(--notch, 13px), #000 var(--notch-in)),
+    radial-gradient(circle at 0 100%, transparent var(--notch, 13px), #000 var(--notch-in)),
+    radial-gradient(circle at 100% 100%, transparent var(--notch, 13px), #000 var(--notch-in));
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(circle at 0 0, transparent var(--notch, 13px), #000 var(--notch-in)),
+    radial-gradient(circle at 100% 0, transparent var(--notch, 13px), #000 var(--notch-in)),
+    radial-gradient(circle at 0 100%, transparent var(--notch, 13px), #000 var(--notch-in)),
+    radial-gradient(circle at 100% 100%, transparent var(--notch, 13px), #000 var(--notch-in));
+  mask-composite: intersect;
+}
+
+[data-theme="rental"] .hero-year {
+  display: table;
+  margin: 0.25rem auto 1.25rem;
+  transform: rotate(-4deg);
+  filter: drop-shadow(0 14px 22px rgb(0 0 0 / 0.45));
+}
+
+[data-theme="rental"] .hero-year-ticket {
+  position: relative;
+  padding: clamp(8px, 1.6vw, 16px) clamp(18px, 3.5vw, 36px) clamp(4px, 0.8vw, 8px) clamp(36px, 7vw, 66px);
+  background: hsl(var(--primary));
+}
+
+[data-theme="rental"] .hero-year-ticket::before {
+  content: "";
+  position: absolute;
+  left: clamp(16px, 3.2vw, 30px);
+  top: 14%;
+  bottom: 14%;
+  border-left: 3px dashed hsl(var(--primary-foreground) / 0.5);
+}
+
+[data-theme="rental"] .hero-year h1 {
+  margin: 0;
+  text-shadow: none;
+}
+
+/* A four-digit year a size smaller, to fit on the stub with room to spare */
+[data-theme="rental"] .hero-year-short h1 {
+  font-size: clamp(4rem, 17vw, 8.5rem);
+}
+
+/* The year's letters in the ticket's blue (each letter carries its own slice of the gradient) */
+[data-theme="rental"] .hero-year .gradient-text {
+  background-image: linear-gradient(hsl(var(--primary-foreground)), hsl(var(--primary-foreground)));
+}
+
+/* Rental Night: room for the shelf of tapes along the bottom of the hero */
+[data-theme="rental"] .hero-section {
+  padding-bottom: 13rem;
+}
+
+[data-theme="rental"] .hero-cue {
+  bottom: 8.5rem;
+}
+
+/* Everything that loops or drifts stands still for visitors who asked for less motion */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .ambient-blob,
+  .gradient-text-animated,
+  .gold-text,
+  .shimmer-text,
+  .animate-spin-slow,
+  .animate-spin-slow-reverse,
+  .animate-twinkle,
+  .animate-pulse-glow,
+  .animate-float,
+  .indeterminate-bar,
+  .shine::after {
+    animation: none !important;
+  }
+
+  .mote,
+  .mote-dropout,
+  .vhs-tracking {
+    display: none;
+  }
+
+  /* Long titles wrap instead of gliding */
+  .scroll-text {
+    white-space: normal;
+  }
+
+  .scroll-text-overflowing {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .animate-scroll-text {
+    animation: none;
+  }
+}
+
+/* Streaming globe (MapLibre) */
+.pwft-globe {
+  background: radial-gradient(circle at center, hsl(var(--card)) 0%, hsl(var(--background)) 70%);
+}
+
+/* The zoom buttons appear once the globe is unlocked */
+.pwft-globe .maplibregl-ctrl-top-right {
+  transition: opacity 0.2s, visibility 0.2s;
+}
+
+.pwft-globe-locked .maplibregl-ctrl-top-right {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.pwft-map-popup .maplibregl-popup-content {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  padding: 10px 28px 10px 12px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.5);
+}
+
+.pwft-map-popup .maplibregl-popup-close-button {
+  color: hsl(var(--muted-foreground));
+  font-size: 16px;
+  padding: 2px 6px;
+}
+
+.pwft-map-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.pwft-map-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.pwft-map-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+  border-bottom-color: hsl(var(--card));
+}
+
+.pwft-map-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.pwft-map-popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.pwft-map-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+  border-top-color: hsl(var(--card));
+}
+
+.pwft-map-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: hsl(var(--card));
+}
+
+.pwft-map-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: hsl(var(--card));
+}
+
+.pwft-map-popup-body {
+  font-size: 12px;
+  line-height: 1.3;
+  min-width: 140px;
+}
+
+.pwft-map-popup-title {
+  font-weight: 700;
+}
+
+.pwft-map-popup-muted {
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
+.pwft-map-popup-toggle {
+  margin-top: 6px;
+  font-weight: 600;
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+
+.pwft-map-popup-toggle:disabled {
+  text-decoration: none;
+  cursor: default;
+}
+
+.pwft-map-popup-dates {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid hsl(var(--border));
+  max-height: 150px;
+  overflow-y: auto;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.pwft-map-popup-dates > div {
+  padding: 2px 0;
+}
+
+.pwft-map-popup-more {
+  opacity: 0.6;
+  font-style: italic;
 }

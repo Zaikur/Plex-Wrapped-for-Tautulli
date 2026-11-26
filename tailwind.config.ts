@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import animate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
@@ -15,6 +16,8 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Plus Jakarta Sans", "system-ui", "sans-serif"],
+        // Big headlines and numbers, in the theme's font (index.css)
+        display: ["var(--font-display)"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -67,6 +70,8 @@ export default {
         purple: "hsl(var(--purple))",
         pink: "hsl(var(--pink))",
         cyan: "hsl(var(--cyan))",
+        heart: "hsl(var(--heart))",
+        heat: "hsl(var(--heat))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -104,5 +109,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [animate],
 } satisfies Config;

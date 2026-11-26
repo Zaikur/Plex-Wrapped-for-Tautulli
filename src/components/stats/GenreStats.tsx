@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import { Tag } from "lucide-react";
 import { StatCard } from "./StatCard";
+import { EASE_OUT_EXPO, VIEWPORT } from "@/lib/motion";
+import { SectionHeader } from "./SectionHeader";
 import { formatDuration } from "@/lib/tautulli";
 
 interface GenreStatsProps {
@@ -39,19 +41,7 @@ export const GenreStats = ({ genres }: GenreStatsProps) => {
 
   return (
     <div className="space-y-6">
-      <div className="text-center mb-8">
-        <motion.div
-          initial={{ rotate: -10, scale: 0 }}
-          whileInView={{ rotate: 0, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ type: "spring", stiffness: 200 }}
-          className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-purple/20 mb-4"
-        >
-          <Tag className="w-7 h-7 text-purple" />
-        </motion.div>
-        <h2 className="text-3xl font-bold gradient-text">Your Genres</h2>
-        <p className="text-muted-foreground mt-2">What kind of content you love most</p>
-      </div>
+      <SectionHeader icon={Tag} title="Your Genres" subtitle="What kind of content you love most" badgeClassName="bg-purple/20" iconClassName="text-purple" />
 
       <StatCard>
         <div className="space-y-4">
@@ -60,8 +50,8 @@ export const GenreStats = ({ genres }: GenreStatsProps) => {
               key={genre.genre}
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
+              viewport={VIEWPORT}
+              transition={{ delay: index * 0.1, duration: 0.7, ease: EASE_OUT_EXPO }}
               className="space-y-2"
             >
               <div className="flex justify-between items-center">
@@ -77,8 +67,8 @@ export const GenreStats = ({ genres }: GenreStatsProps) => {
                 <motion.div
                   initial={{ width: 0 }}
                   whileInView={{ width: `${(genre.watchTime / maxTime) * 100}%` }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 + 0.2, duration: 0.5 }}
+                  viewport={VIEWPORT}
+                  transition={{ delay: index * 0.1 + 0.2, duration: 1, ease: EASE_OUT_EXPO }}
                   className="h-full bg-gradient-to-r from-purple to-pink rounded-full"
                 />
               </div>

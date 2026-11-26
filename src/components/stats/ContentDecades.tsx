@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import { History } from "lucide-react";
 import { StatCard } from "./StatCard";
+import { EASE_OUT_EXPO, VIEWPORT } from "@/lib/motion";
+import { SectionHeader } from "./SectionHeader";
 import { formatDuration } from "@/lib/tautulli";
 
 interface ContentDecadesProps {
@@ -14,19 +16,7 @@ export const ContentDecades = ({ decades }: ContentDecadesProps) => {
 
   return (
     <div className="space-y-6">
-      <div className="text-center mb-8">
-        <motion.div
-          initial={{ rotate: -10, scale: 0 }}
-          whileInView={{ rotate: 0, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ type: "spring", stiffness: 200 }}
-          className="inline-flex items-center justify-center w-14 h-14 rounded-2xl gradient-bg mb-4"
-        >
-          <History className="w-7 h-7 text-primary" />
-        </motion.div>
-        <h2 className="text-3xl font-bold gradient-text">Your Time Machine</h2>
-        <p className="text-muted-foreground mt-2">Which era do you love most?</p>
-      </div>
+      <SectionHeader icon={History} title="Your Time Machine" subtitle="Which era do you love most?" />
 
       <StatCard>
         <div className="space-y-4">
@@ -35,8 +25,8 @@ export const ContentDecades = ({ decades }: ContentDecadesProps) => {
               key={decade.decade}
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
+              viewport={VIEWPORT}
+              transition={{ delay: index * 0.1, duration: 0.7, ease: EASE_OUT_EXPO }}
               className="space-y-2"
             >
               <div className="flex items-center justify-between">
@@ -48,13 +38,13 @@ export const ContentDecades = ({ decades }: ContentDecadesProps) => {
                 </div>
                 <span className="text-foreground font-medium">{formatDuration(decade.watchTime)}</span>
               </div>
-              <div className="h-3 bg-muted rounded-full overflow-hidden">
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   whileInView={{ width: `${(decade.watchTime / maxTime) * 100}%` }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.8, delay: index * 0.1 }}
-                  className="h-full gradient-bg rounded-full"
+                  viewport={VIEWPORT}
+                  transition={{ delay: index * 0.1, duration: 1, ease: EASE_OUT_EXPO }}
+                  className="h-full bg-gradient-to-r from-cyan to-blue rounded-full"
                 />
               </div>
             </motion.div>

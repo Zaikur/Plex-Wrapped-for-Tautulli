@@ -1,12 +1,14 @@
 // src/components/ExportableWrappedReport.tsx
 
 import { useEffect } from "react";
-import { TautulliConfig, TautulliUser, WrappedStats, StreamingLocation } from "@/types/tautulli";
+import { TautulliUser, WrappedStats, StreamingLocation } from "@/types/tautulli";
 import { YearSelection, getDisplayYear, getYearsCount } from "./YearSelector";
-import { formatHours } from "@/lib/tautulli";
+import { formatHours, getImageUrl } from "@/lib/tautulli";
+import { describePersonality, isGroupPersonality, personalityDef, personalityLabel } from "@/lib/personality";
 import { Clock, Film, Tv, Play, Calendar, Flame, Moon, Star, Clapperboard, Users, Smartphone, Trophy, Sparkles, CalendarDays, Sunrise, Globe, MapPin } from "lucide-react";
 import { getServerAdminSettings } from "@/lib/serverConfig";
 import { generateLocationInsight } from "@/lib/geolocation";
+import { getTheme, withAlpha } from "@/lib/themes";
 
 // Format duration as "Xh Ym" for readability
 const formatDurationHM = (seconds: number): string => {
@@ -40,7 +42,6 @@ interface ExportableWrappedReportProps {
   user: TautulliUser;
   stats: WrappedStats;
   yearSelection: YearSelection;
-  config: TautulliConfig;
   geoLocations?: StreamingLocation[];
   onReady?: () => void;
 }
@@ -77,20 +78,7 @@ export const ExportableWrappedReport = ({
     return () => clearTimeout(timer);
   }, [onReady]);
 
-  // Color constants
-  const colors = {
-    bg: '#0a0a0f',
-    card: '#0f0f14',
-    text: '#fafafa',
-    textMuted: '#71717a',
-    cyan: '#00d4aa',
-    purple: '#a855f7',
-    pink: '#ec4899',
-    orange: '#f97316',
-    yellow: '#eab308',
-    green: '#22c55e',
-    blue: '#3b82f6',
-  };
+  const colors = getTheme(adminSettings.theme).exportColors;
 
   const cardStyle: React.CSSProperties = {
     backgroundColor: colors.card,
@@ -130,7 +118,7 @@ export const ExportableWrappedReport = ({
           alignItems: 'center',
           justifyContent: 'center',
           padding: '48px 32px',
-          background: `linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(236, 72, 153, 0.1) 50%, rgba(6, 182, 212, 0.08) 100%)`,
+          background: colors.heroGradient,
         }}
       >
         <div style={{ textAlign: 'center', paddingBottom: '24px' }}>
@@ -219,75 +207,73 @@ export const ExportableWrappedReport = ({
           </div>
         </div>
 
-        {/* Top Movie & Show */}
-        {(stats.topMovie || stats.topShow) && (
+        {/* Top movies and shows: #1 with its poster, places 2–5 below (like the report) */}
+        {(stats.topMovies.length > 0 || stats.topShows.length > 0) && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-            {stats.topMovie && (
-              <div style={cardStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <Film size={20} color={colors.pink} />
-                  <span style={{ fontSize: '14px', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Top Movie</span>
-                </div>
-                <h3 style={{ fontSize: '24px', fontWeight: 700, color: colors.text, marginBottom: '8px' }}>
-                  {stats.topMovie.title}
-                </h3>
-                <p style={{ fontSize: '16px', color: colors.cyan }}>
-                  Watched {stats.topMovie.watchCount} time{stats.topMovie.watchCount !== 1 ? 's' : ''}
-                </p>
-              </div>
-            )}
-            {stats.topShow && (
-              <div style={cardStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <Tv size={20} color={colors.cyan} />
-                  <span style={{ fontSize: '14px', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Top Show</span>
-                </div>
-                <h3 style={{ fontSize: '24px', fontWeight: 700, color: colors.text, marginBottom: '8px' }}>
-                  {stats.topShow.title}
-                </h3>
-                <p style={{ fontSize: '16px', color: colors.pink }}>
-                  {stats.topShow.episodeCount} episode{stats.topShow.episodeCount !== 1 ? 's' : ''} watched
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Top Movies List */}
-        {stats.topMovies.length > 0 && (
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <Trophy size={20} color={colors.yellow} />
-              <span style={{ fontSize: '18px', fontWeight: 600, color: colors.text }}>Top Movies</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {stats.topMovies.slice(0, 5).map((movie, i) => (
-                <div key={movie.title} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '20px', fontWeight: 700, color: colors.purple, width: '30px' }}>#{i + 1}</span>
-                  <span style={{ flex: 1, fontSize: '16px', color: colors.text }}>{movie.title}</span>
-                  <span style={{ fontSize: '14px', color: colors.textMuted }}>{movie.watchCount} plays</span>
+            {[
+              {
+                kind: 'Movie',
+                accent: colors.pink,
+                Icon: Film,
+                items: stats.topMovies.slice(0, 5).map((m) => ({
+                  title: m.title,
+                  thumb: m.thumb,
+                  detail: `${m.year}`,
+                  stat: `Watched ${m.watchCount} time${m.watchCount !== 1 ? 's' : ''} · ${formatDurationHM(m.totalTime)}`,
+                  short: `${m.watchCount} play${m.watchCount !== 1 ? 's' : ''}`,
+                })),
+              },
+              {
+                kind: 'Show',
+                accent: colors.cyan,
+                Icon: Tv,
+                items: stats.topShows.slice(0, 5).map((s) => ({
+                  title: s.title,
+                  thumb: s.thumb,
+                  detail: `${s.episodeCount} episode${s.episodeCount !== 1 ? 's' : ''} watched`,
+                  stat: formatDurationHM(s.totalTime),
+                  short: `${s.episodeCount} eps`,
+                })),
+              },
+            ]
+              .filter((group) => group.items.length > 0)
+              .map(({ kind, accent, Icon, items: [top, ...rest] }) => (
+                <div key={kind} style={cardStyle}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                    <Icon size={20} color={accent} />
+                    <span style={{ fontSize: '14px', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Top {kind}s</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                    {top.thumb && (
+                      <div style={{ width: '72px', height: '108px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                        <img
+                          src={getImageUrl(top.thumb)}
+                          alt={top.title}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          crossOrigin="anonymous"
+                        />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '13px', fontWeight: 700, color: accent, margin: 0 }}>#1</p>
+                      <h3 style={{ fontSize: '22px', fontWeight: 700, color: colors.text, margin: '4px 0 6px', lineHeight: 1.2 }}>{top.title}</h3>
+                      <p style={{ fontSize: '14px', color: colors.textMuted, margin: 0 }}>{top.detail}</p>
+                      <p style={{ fontSize: '14px', color: accent, margin: '4px 0 0' }}>{top.stat}</p>
+                    </div>
+                  </div>
+                  {rest.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                      {rest.map((item, i) => (
+                        <div key={item.title} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '16px', fontWeight: 700, color: colors.purple, width: '28px', flexShrink: 0 }}>#{i + 2}</span>
+                          <span style={{ flex: 1, fontSize: '15px', color: colors.text }}>{item.title}</span>
+                          <span style={{ fontSize: '13px', color: colors.textMuted, flexShrink: 0 }}>{item.short}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* Top Shows List */}
-        {stats.topShows.length > 0 && (
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <Trophy size={20} color={colors.cyan} />
-              <span style={{ fontSize: '18px', fontWeight: 600, color: colors.text }}>Top Shows</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {stats.topShows.slice(0, 5).map((show, i) => (
-                <div key={show.title} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '20px', fontWeight: 700, color: colors.cyan, width: '30px' }}>#{i + 1}</span>
-                  <span style={{ flex: 1, fontSize: '16px', color: colors.text }}>{show.title}</span>
-                  <span style={{ fontSize: '14px', color: colors.textMuted }}>{show.episodeCount} eps</span>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -371,9 +357,10 @@ export const ExportableWrappedReport = ({
               {stats.watchByHour.map((hourData) => {
                 const maxMinutes = Math.max(...stats.watchByHour.map(h => h.minutes), 1);
                 const intensity = hourData.minutes / maxMinutes;
-                const bgColor = intensity > 0 
-                  ? `rgba(0, 212, 170, ${Math.max(intensity * 0.8, 0.1)})` 
-                  : 'rgba(255,255,255,0.03)';
+                const alpha = intensity > 0 ? Math.max(intensity * 0.8, 0.1) : 0;
+                const bgColor = alpha > 0 ? withAlpha(colors.heat, alpha) : 'rgba(255,255,255,0.03)';
+                // Light text on the dim tiles, dark on the bright ones
+                const labelColor = alpha >= 0.6 ? colors.bg : alpha > 0.24 ? colors.text : colors.textMuted;
                 const hour = hourData.hour;
                 const label = hour === 0 ? '12a' : hour === 12 ? '12p' : hour > 12 ? `${hour-12}p` : `${hour}a`;
                 return (
@@ -386,14 +373,27 @@ export const ExportableWrappedReport = ({
                       textAlign: 'center',
                     }}
                   >
-                    <span style={{ fontSize: '10px', color: colors.textMuted }}>{label}</span>
+                    <span style={{ fontSize: '10px', fontWeight: 500, color: labelColor }}>{label}</span>
                   </div>
                 );
               })}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
-              <span style={{ fontSize: '11px', color: colors.textMuted }}>Less active</span>
-              <span style={{ fontSize: '11px', color: colors.textMuted }}>More active</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
+              <span style={{ fontSize: '11px', color: colors.textMuted, lineHeight: 1 }}>Less active</span>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                {[0, 0.2, 0.4, 0.6, 0.8].map((alpha) => (
+                  <div
+                    key={alpha}
+                    style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '3px',
+                      backgroundColor: alpha > 0 ? withAlpha(colors.heat, alpha) : 'rgba(255,255,255,0.03)',
+                    }}
+                  />
+                ))}
+              </div>
+              <span style={{ fontSize: '11px', color: colors.textMuted, lineHeight: 1 }}>More active</span>
             </div>
           </div>
         )}
@@ -407,30 +407,14 @@ export const ExportableWrappedReport = ({
           
           {/* Streaming Personality */}
           {(() => {
-            const getPersonality = () => {
-              const totalTime = (stats.morningWatchTime || 0) + (stats.afternoonWatchTime || 0) + (stats.eveningWatchTime || 0) + (stats.nightWatchTime || 0);
-              if (totalTime === 0) return { label: "Balanced Viewer", color: colors.cyan, description: "You stream whenever inspiration strikes!" };
-              
-              const morningPct = (stats.morningWatchTime || 0) / totalTime;
-              const eveningPct = (stats.eveningWatchTime || 0) / totalTime;
-              const nightPct = (stats.nightWatchTime || 0) / totalTime;
-              const avgSessionMin = (stats.avgSessionLength || 0) / 60;
-              const avgDailyHours = stats.avgDailyWatchTime / 3600;
-              
-              if (avgSessionMin > 90) return { label: "Binge Master", color: colors.pink, description: "You don't start what you can't finish!" };
-              if (avgDailyHours > 4) return { label: "Marathon Runner", color: colors.orange, description: "Streaming is your cardio!" };
-              if (nightPct > 0.35) return { label: "Night Owl", color: colors.purple, description: "The night is dark and full of episodes!" };
-              if (morningPct > 0.35) return { label: "Early Bird", color: colors.yellow, description: "Up and streaming with the sun!" };
-              if (stats.weekendPercentage > 60) return { label: "Weekend Warrior", color: colors.orange, description: "Weekends are sacred streaming time!" };
-              if (eveningPct > 0.45) return { label: "Prime Time Viewer", color: colors.orange, description: "Peak hours, peak entertainment!" };
-              return { label: "Balanced Viewer", color: colors.cyan, description: "You've got perfectly balanced taste!" };
-            };
-            const personality = getPersonality();
+            const color = colors[personalityDef(stats.personality).color];
             return (
-              <div style={{ textAlign: 'center', padding: '20px', marginBottom: '20px', background: `linear-gradient(135deg, ${personality.color}22 0%, transparent 100%)`, borderRadius: '12px' }}>
-                <p style={{ fontSize: '14px', color: colors.textMuted, marginBottom: '4px' }}>Your streaming personality is</p>
-                <p style={{ fontSize: '32px', fontWeight: 800, color: personality.color, marginBottom: '4px' }}>{personality.label}</p>
-                <p style={{ fontSize: '14px', color: colors.textMuted }}>{personality.description}</p>
+              <div style={{ textAlign: 'center', padding: '20px', marginBottom: '20px', background: `linear-gradient(135deg, ${color}22 0%, transparent 100%)`, borderRadius: '12px' }}>
+                <p style={{ fontSize: '14px', color: colors.textMuted, marginBottom: '4px' }}>
+                  {isGroupPersonality(stats.personality) ? "Your streaming personalities are" : "Your streaming personality is"}
+                </p>
+                <p style={{ fontSize: '32px', fontWeight: 800, color, marginBottom: '4px' }}>{personalityLabel(stats.personality)}</p>
+                <p style={{ fontSize: '14px', color: colors.textMuted }}>{describePersonality(stats.personality)}</p>
               </div>
             );
           })()}

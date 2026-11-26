@@ -1,58 +1,95 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Calendar, Play, Zap, Rocket } from "lucide-react";
+import { Calendar, Flag, Play, Zap, Rocket } from "lucide-react";
 import { StatCard } from "./StatCard";
-import { formatDuration } from "@/lib/tautulli";
+import { SectionHeader } from "./SectionHeader";
+import { AnimatedNumber } from "./AnimatedNumber";
+import { getImageUrl } from "@/lib/tautulli";
+import { EASE_OUT_EXPO, VIEWPORT } from "@/lib/motion";
+
+type JourneyWatch = { title: string; date: string; year: number; image?: string };
 
 interface JourneyStatsProps {
-  firstWatch: { title: string; date: string } | null;
-  lastWatch: { title: string; date: string } | null;
+  firstWatch: JourneyWatch | null;
+  lastWatch: JourneyWatch | null;
   longestStreak: number;
   totalSessions: number;
   isAllTime?: boolean;
+  isGroup?: boolean;
 }
 
-export const JourneyStats = ({ firstWatch, lastWatch, longestStreak, totalSessions, isAllTime = false }: JourneyStatsProps) => {
-  const startedText = isAllTime ? "Your journey started with" : "Your year started with";
+// A landscape image across the top of the card (episode still or movie background art).
+// Left out when Plex has no such image for the title.
+const Banner = ({ image, title }: { image: string; title: string }) => {
+  // Remembered per image, so another report's image isn't hidden by an earlier failure
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  if (failedImage === image) return null;
+  return (
+    <div className="relative -mx-6 -mt-6 md:-mx-8 md:-mt-8 mb-5 aspect-video overflow-hidden bg-muted/30">
+      {/* A slow Ken Burns push-in as the card arrives */}
+      <motion.img
+        src={getImageUrl(image, "landscape")}
+        alt={title}
+        loading="lazy"
+        onError={() => setFailedImage(image)}
+        initial={{ scale: 1.18 }}
+        whileInView={{ scale: 1 }}
+        viewport={VIEWPORT}
+        transition={{ duration: 2.4, ease: EASE_OUT_EXPO }}
+        className="w-full h-full object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/10 to-transparent" />
+    </div>
+  );
+};
+
+const WatchCard = ({ watch, label, icon, delay }: { watch: JourneyWatch; label: string; icon: React.ReactNode; delay: number }) => (
+  <StatCard delay={delay} className="overflow-hidden">
+    {watch.image && <Banner image={watch.image} title={watch.title} />}
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <p className="font-display text-2xl font-bold tracking-tight text-foreground">{watch.title}</p>
+      <p className="text-sm text-muted-foreground">{watch.date}</p>
+    </div>
+  </StatCard>
+);
+
+export const JourneyStats = ({
+  firstWatch,
+  lastWatch,
+  longestStreak,
+  totalSessions,
+  isAllTime = false,
+  isGroup = false,
+}: JourneyStatsProps) => {
+  // All Time: the first watch is the first session ever recorded
+  const yearsAgo = firstWatch ? new Date().getFullYear() - firstWatch.year : 0;
+  const firstWatchWithAge = firstWatch && isAllTime
+    ? { ...firstWatch, date: `${firstWatch.date} · ${yearsAgo <= 0 ? "this year" : yearsAgo === 1 ? "1 year ago" : `${yearsAgo} years ago`}` }
+    : firstWatch;
+  const firstLabel = isAllTime
+    ? isGroup ? "The server's first recorded session" : "Where it all began"
+    : isGroup ? "The year started with" : "Your year started with";
+
   return (
     <div className="space-y-6">
-      <div className="text-center mb-8">
-        <motion.div
-          initial={{ rotate: -10, scale: 0 }}
-          whileInView={{ rotate: 0, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ type: "spring", stiffness: 200 }}
-          className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan/30 to-blue/30 mb-4"
-        >
-          <Rocket className="w-7 h-7 text-cyan" />
-        </motion.div>
-        <h2 className="text-3xl font-bold gradient-text">Your Journey</h2>
-      </div>
+      <SectionHeader icon={Rocket} title="Your Journey" badgeClassName="bg-gradient-to-br from-cyan/30 to-blue/30" iconClassName="text-cyan" />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {firstWatch && (
-          <StatCard delay={0.1}>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Calendar className="w-4 h-4 text-green" />
-                <span>{startedText}</span>
-              </div>
-              <p className="text-xl font-bold text-foreground">{firstWatch.title}</p>
-              <p className="text-sm text-muted-foreground">{firstWatch.date}</p>
-            </div>
-          </StatCard>
+        {firstWatchWithAge && (
+          <WatchCard
+            watch={firstWatchWithAge}
+            label={firstLabel}
+            icon={isAllTime ? <Flag className="w-4 h-4 text-green" /> : <Calendar className="w-4 h-4 text-green" />}
+            delay={0.1}
+          />
         )}
 
         {lastWatch && (
-          <StatCard delay={0.2}>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Calendar className="w-4 h-4 text-pink" />
-                <span>Most recently watched</span>
-              </div>
-              <p className="text-xl font-bold text-foreground">{lastWatch.title}</p>
-              <p className="text-sm text-muted-foreground">{lastWatch.date}</p>
-            </div>
-          </StatCard>
+          <WatchCard watch={lastWatch} label="Most recently watched" icon={<Calendar className="w-4 h-4 text-pink" />} delay={0.2} />
         )}
 
         <StatCard delay={0.3}>
@@ -61,15 +98,9 @@ export const JourneyStats = ({ firstWatch, lastWatch, longestStreak, totalSessio
               <Zap className="w-4 h-4 text-yellow" />
               <span>Longest Streak</span>
             </div>
-            <motion.p
-              initial={{ scale: 0 }}
-              whileInView={{ scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ type: "spring", stiffness: 200, delay: 0.3 }}
-              className="text-5xl font-extrabold gradient-text"
-            >
-              {longestStreak}
-            </motion.p>
+            <p className="font-display text-6xl font-extrabold tracking-tighter gradient-value">
+              <AnimatedNumber value={longestStreak} duration={1.6} grouping />
+            </p>
             <p className="text-sm text-muted-foreground mt-2">consecutive days</p>
           </div>
         </StatCard>
@@ -80,15 +111,9 @@ export const JourneyStats = ({ firstWatch, lastWatch, longestStreak, totalSessio
               <Play className="w-4 h-4 text-orange" />
               <span>Total Sessions</span>
             </div>
-            <motion.p
-              initial={{ scale: 0 }}
-              whileInView={{ scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ type: "spring", stiffness: 200, delay: 0.4 }}
-              className="text-5xl font-extrabold gradient-text"
-            >
-              {totalSessions.toLocaleString()}
-            </motion.p>
+            <p className="font-display text-6xl font-extrabold tracking-tighter gradient-value">
+              <AnimatedNumber value={totalSessions} duration={1.8} grouping />
+            </p>
             <p className="text-sm text-muted-foreground mt-2">play sessions</p>
           </div>
         </StatCard>
